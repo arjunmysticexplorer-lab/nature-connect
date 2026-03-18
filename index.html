@@ -94,15 +94,16 @@
 
 <script>
 
-let currentUser = localStorage.getItem("user")
+let currentUser = localStorage.getItem("user") || ""
 
 if(currentUser){
  showApp()
 }
 
 function login(){
- let name = document.getElementById("username").value
- if(name !== ""){
+ let name = document.getElementById("username").value.trim()
+ if(name){
+  currentUser = name
   localStorage.setItem("user", name)
   showApp()
  }
@@ -111,14 +112,6 @@ function login(){
 function logout(){
  localStorage.removeItem("user")
  location.reload()
-}
-
-function showApp(){
- document.getElementById("loginPage").style.display = "none"
- document.getElementById("appPage").style.display = "block"
- document.getElementById("welcome").innerText = "Welcome " + currentUser
-
- loadPosts()
 }
 
 function getPosts(){
@@ -130,20 +123,24 @@ function savePosts(posts){
 }
 
 function post(){
- let text = document.getElementById("text").value
- let file = document.getElementById("imageInput").files[0]
+ let text = document.getElementById("text").value.trim()
+ let fileInput = document.getElementById("imageInput")
+ let file = fileInput.files[0]
+
+ if(!text && !file){
+   alert("Write something or select image")
+   return
+ }
 
  let posts = getPosts()
-
- if(text === "" && !file) return
 
  if(file){
    let reader = new FileReader()
 
-   reader.onload = function(e){
+   reader.onload = function(event){
      let postData = {
        text: text,
-       image: e.target.result
+       image: event.target.result
      }
 
      posts.unshift(postData)
@@ -165,7 +162,7 @@ function post(){
  }
 
  document.getElementById("text").value = ""
- document.getElementById("imageInput").value = ""
+ fileInput.value = ""
 }
 
 function loadPosts(){
@@ -174,19 +171,19 @@ function loadPosts(){
 
  posts.forEach(p=>{
    html += "<div class='card'>"
-
-   if(p.text){
-     html += "<p>" + p.text + "</p>"
-   }
-
-   if(p.image){
-     html += "<img src='" + p.image + "'/>"
-   }
-
+   if(p.text) html += "<p>" + p.text + "</p>"
+   if(p.image) html += "<img src='" + p.image + "'/>"
    html += "</div>"
  })
 
  document.getElementById("feed").innerHTML = html
+}
+
+function showApp(){
+ document.getElementById("loginPage").style.display = "none"
+ document.getElementById("appPage").style.display = "block"
+ document.getElementById("welcome").innerText = "Welcome " + currentUser
+ loadPosts()
 }
 
 function aiReply(){
