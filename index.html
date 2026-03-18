@@ -8,66 +8,56 @@
    font-family: Arial;
    background: linear-gradient(to bottom, #0b1d0b, #1f3d1f);
    color: white;
-   margin: 0;
    text-align: center;
  }
 
- h1 {
-   background: black;
-   padding: 15px;
-   margin: 0;
- }
-
- .container {
-   padding: 20px;
- }
-
- input {
+ input, button {
    padding: 10px;
-   width: 80%;
    margin: 5px;
    border-radius: 10px;
-   border: none;
- }
-
- button {
-   padding: 10px 20px;
-   margin: 10px;
-   border: none;
-   border-radius: 20px;
-   background: green;
-   color: white;
-   font-weight: bold;
  }
 
  .card {
    background: #1a2e1a;
-   padding: 15px;
    margin: 10px;
-   border-radius: 15px;
+   padding: 10px;
+   border-radius: 10px;
  }
 
  img {
    width: 100%;
-   border-radius: 10px;
    margin-top: 10px;
  }
 </style>
 
-<!-- 🔥 Firebase connection (HEAD में सही जगह) -->
+<!-- 🔥 Firebase SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
-    authDomain: "nature-connect-a1592.firebaseapp.com",
-    projectId: "nature-connect-a1592",
-    storageBucket: "nature-connect-a1592.firebasestorage.app",
-    messagingSenderId: "734768119211",
-    appId: "1:734768119211:web:7633f476bc22d8d552e6ee"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
+  authDomain: "nature-connect-a1592.firebaseapp.com",
+  projectId: "nature-connect-a1592",
+  storageBucket: "nature-connect-a1592.firebasestorage.app",
+  messagingSenderId: "734768119211",
+  appId: "1:734768119211:web:7633f476bc22d8d552e6ee"
+};
 
-  const app = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// 🌍 GLOBAL POSTS
+window.addPost = async function(post){
+  await addDoc(collection(db, "posts"), post);
+}
+
+window.getPosts = async function(){
+  let snapshot = await getDocs(collection(db, "posts"));
+  let data = [];
+  snapshot.forEach(doc => data.push(doc.data()));
+  return data;
+}
 </script>
 
 </head>
@@ -76,132 +66,93 @@
 
 <h1>🌍 Nature Connect</h1>
 
-<div class="container" id="loginPage">
-<h2>Login</h2>
-<input id="username" placeholder="Enter your name" />
-<br>
-<button onclick="login()">Enter</button>
+<div id="loginPage">
+<input id="username" placeholder="Enter name"/>
+<button onclick="login()">Login</button>
 </div>
 
-<div class="container" id="appPage" style="display:none;">
+<div id="appPage" style="display:none;">
 
 <h2 id="welcome"></h2>
 
-<input id="text" placeholder="Share your moment..." />
+<input id="text" placeholder="Write something"/>
+<input type="file" id="imageInput"/>
 <br>
-
-<input type="file" id="imageInput" accept="image/*" />
-<br>
-
 <button onclick="post()">Post</button>
-<button onclick="logout()">Logout</button>
 
-<h2>🌍 Global Feed</h2>
 <div id="feed"></div>
 
-<h2>AI Assistant 🤖</h2>
-<input id="aiInput" placeholder="Ask something..." />
-<button onclick="aiReply()">Ask AI</button>
-<p id="aiOutput"></p>
+<h2>AI 🤖</h2>
+<input id="aiInput">
+<button onclick="ai()">Ask</button>
+<p id="aiOut"></p>
 
 </div>
 
 <script>
 
-let currentUser = localStorage.getItem("user") || ""
+let user = localStorage.getItem("user") || ""
 
-if(currentUser){
+if(user){
  showApp()
 }
 
 function login(){
- let name = document.getElementById("username").value.trim()
- if(name){
-  currentUser = name
-  localStorage.setItem("user", name)
-  showApp()
- }
+ user = document.getElementById("username").value
+ localStorage.setItem("user", user)
+ showApp()
 }
 
-function logout(){
- localStorage.removeItem("user")
- location.reload()
+function showApp(){
+ document.getElementById("loginPage").style.display="none"
+ document.getElementById("appPage").style.display="block"
+ document.getElementById("welcome").innerText="Welcome "+user
+ load()
 }
 
-function getPosts(){
- return JSON.parse(localStorage.getItem("global_posts")) || []
-}
-
-function savePosts(posts){
- localStorage.setItem("global_posts", JSON.stringify(posts))
-}
-
-function post(){
- let text = document.getElementById("text").value.trim()
+async function post(){
+ let text = document.getElementById("text").value
  let file = document.getElementById("imageInput").files[0]
 
- if(!text && !file){
-   alert("Write something or select image")
-   return
- }
+ let image = null
 
- let posts = getPosts()
-
- let imageURL = null
  if(file){
-   imageURL = URL.createObjectURL(file)
+   let reader = new FileReader()
+   reader.onload = async function(e){
+     image = e.target.result
+     await addPost({user, text, image})
+     load()
+   }
+   reader.readAsDataURL(file)
+ } else {
+   await addPost({user, text, image})
+   load()
  }
-
- let postData = {
-   user: currentUser,
-   text: text,
-   image: imageURL
- }
-
- posts.unshift(postData)
- savePosts(posts)
- render(posts)
-
- document.getElementById("text").value = ""
- document.getElementById("imageInput").value = ""
 }
 
-function render(posts){
+async function load(){
+ let posts = await getPosts()
  let html = ""
 
- posts.forEach(p=>{
+ posts.reverse().forEach(p=>{
    html += "<div class='card'>"
-   html += "<b>👤 " + p.user + "</b>"
-   if(p.text) html += "<p>" + p.text + "</p>"
-   if(p.image) html += "<img src='" + p.image + "'/>"
+   html += "<b>"+p.user+"</b>"
+   if(p.text) html += "<p>"+p.text+"</p>"
+   if(p.image) html += "<img src='"+p.image+"'/>"
    html += "</div>"
  })
 
  document.getElementById("feed").innerHTML = html
 }
 
-function showApp(){
- document.getElementById("loginPage").style.display = "none"
- document.getElementById("appPage").style.display = "block"
- document.getElementById("welcome").innerText = "Welcome " + currentUser
- render(getPosts())
-}
+function ai(){
+ let input=document.getElementById("aiInput").value.toLowerCase()
+ let out=""
 
-function aiReply(){
- let input = document.getElementById("aiInput").value.toLowerCase()
- let reply = ""
+ if(input.includes("hello")) out="Hello "+user
+ else out="I am your AI 🤖"
 
- if(input.includes("hello")){
-  reply = "Hello " + currentUser + " 🌿"
- }
- else if(input.includes("nature")){
-  reply = "Nature is peace 🌄"
- }
- else{
-  reply = "I am your AI 🤖"
- }
-
- document.getElementById("aiOutput").innerText = reply
+ document.getElementById("aiOut").innerText=out
 }
 
 </script>
