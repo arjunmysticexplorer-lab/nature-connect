@@ -22,6 +22,12 @@ input, button {
 img {
   width: 100%;
 }
+.comment {
+  background: #0f2a0f;
+  margin: 5px;
+  padding: 5px;
+  font-size: 14px;
+}
 </style>
 
 </head>
@@ -132,7 +138,8 @@ window.post = async function(){
     user,
     text,
     image,
-    likes: 0
+    likes: 0,
+    comments: []
   });
 
   document.getElementById("text").value = "";
@@ -141,16 +148,32 @@ window.post = async function(){
   load();
 }
 
-// LIKE FUNCTION
-window.likePost = async function(id, currentLikes){
-  const postRef = doc(db, "posts", id);
-  await updateDoc(postRef, {
-    likes: currentLikes + 1
+// LIKE
+window.likePost = async function(id, likes){
+  await updateDoc(doc(db,"posts",id),{
+    likes: likes + 1
   });
   load();
 }
 
-// LOAD POSTS
+// COMMENT
+window.addComment = async function(id, comments){
+  let input = document.getElementById("comment-"+id);
+  let text = input.value.trim();
+
+  if(!text) return;
+
+  comments.push(user + ": " + text);
+
+  await updateDoc(doc(db,"posts",id),{
+    comments: comments
+  });
+
+  input.value="";
+  load();
+}
+
+// LOAD
 async function load(){
   let snapshot = await getDocs(collection(db, "posts"));
   let html = "";
@@ -161,11 +184,23 @@ async function load(){
 
     html += "<div class='card'>";
     html += "<b>"+p.user+"</b>";
+
     if(p.text) html += "<p>"+p.text+"</p>";
     if(p.image) html += "<img src='"+p.image+"'>";
 
-    html += "<p>❤️ "+(p.likes || 0)+"</p>";
-    html += "<button onclick=\"likePost('"+id+"', "+(p.likes || 0)+")\">Like</button>";
+    html += "<p>❤️ "+(p.likes||0)+"</p>";
+    html += "<button onclick=\"likePost('"+id+"',"+(p.likes||0)+")\">Like</button>";
+
+    // COMMENTS
+    html += "<div>";
+    (p.comments||[]).forEach(c=>{
+      html += "<div class='comment'>"+c+"</div>";
+    });
+
+    html += "<input id='comment-"+id+"' placeholder='Write comment'>";
+    html += "<button onclick=\"addComment('"+id+"',"+JSON.stringify(p.comments||[])+")\">Comment</button>";
+
+    html += "</div>";
 
     html += "</div>";
   });
