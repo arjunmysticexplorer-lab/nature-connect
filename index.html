@@ -73,10 +73,11 @@ img {
 <h2 id="welcome"></h2>
 
 <div class="nav">
-<button onclick="showFeed()">🌍 Feed</button>
-<button onclick="showProfile()">👤 Profile</button>
-<button onclick="showChat()">💬 Chat</button>
-<button onclick="logout()">Logout</button>
+<button onclick="showFeed()">🌍</button>
+<button onclick="showProfile()">👤</button>
+<button onclick="showChat()">💬</button>
+<button onclick="showNotifications()">🔔</button>
+<button onclick="logout()">🚪</button>
 </div>
 
 <!-- FEED -->
@@ -97,10 +98,16 @@ img {
 
 <!-- CHAT -->
 <div id="chatSection" style="display:none;">
-<h3>💬 Global Chat</h3>
+<h3>💬 Chat</h3>
 <div id="chatBox"></div>
-<input id="chatInput" placeholder="Message">
+<input id="chatInput">
 <button onclick="sendMessage()">Send</button>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifSection" style="display:none;">
+<h3>🔔 Notifications</h3>
+<div id="notifBox"></div>
 </div>
 
 <script type="module">
@@ -148,12 +155,14 @@ window.showFeed=function(){
  document.getElementById("feedSection").style.display="block";
  document.getElementById("profileSection").style.display="none";
  document.getElementById("chatSection").style.display="none";
+ document.getElementById("notifSection").style.display="none";
 }
 
 window.showProfile=function(){
  document.getElementById("feedSection").style.display="none";
  document.getElementById("profileSection").style.display="block";
  document.getElementById("chatSection").style.display="none";
+ document.getElementById("notifSection").style.display="none";
  loadProfile();
 }
 
@@ -161,7 +170,16 @@ window.showChat=function(){
  document.getElementById("feedSection").style.display="none";
  document.getElementById("profileSection").style.display="none";
  document.getElementById("chatSection").style.display="block";
+ document.getElementById("notifSection").style.display="none";
  loadChat();
+}
+
+window.showNotifications=function(){
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("profileSection").style.display="none";
+ document.getElementById("chatSection").style.display="none";
+ document.getElementById("notifSection").style.display="block";
+ loadNotifications();
 }
 
 // POST
@@ -198,13 +216,13 @@ window.post=async function(){
   user,text,image,likes:0,comments:[]
  });
 
- document.getElementById("text").value="";
  load();
 }
 
 // LIKE
 window.likePost=async function(id,likes){
  await updateDoc(doc(db,"posts",id),{likes:likes+1});
+ await addNotification(user+" liked a post");
  load();
 }
 
@@ -217,14 +235,28 @@ window.addComment=async function(id,comments){
  comments.push(user+": "+text);
 
  await updateDoc(doc(db,"posts",id),{comments});
+ await addNotification(user+" commented: "+text);
  load();
+}
+
+// NOTIFICATION
+async function addNotification(text){
+ await addDoc(collection(db,"notifications"),{text});
+}
+
+async function loadNotifications(){
+ let snap=await getDocs(collection(db,"notifications"));
+ let html="";
+ snap.forEach(d=>{
+  html+=`<div class="card">${d.data().text}</div>`;
+ });
+ document.getElementById("notifBox").innerHTML=html;
 }
 
 // LOAD FEED
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
-
  snap.forEach(d=>{
   let p=d.data();
   let id=d.id;
@@ -240,7 +272,6 @@ async function load(){
   <button onclick="addComment('${id}',${JSON.stringify(p.comments||[])})">Send</button>
   </div>`;
  });
-
  document.getElementById("feed").innerHTML=html;
 }
 
@@ -254,21 +285,18 @@ window.saveBio=async function(){
 async function loadProfile(){
  let ref=doc(db,"users",user);
  let snap=await getDoc(ref);
-
  if(snap.exists()){
   document.getElementById("bioText").innerText=snap.data().bio;
  }
 
  let posts=await getDocs(collection(db,"posts"));
  let html="";
-
  posts.forEach(d=>{
   let p=d.data();
   if(p.user===user){
    html+=`<div class="card">${p.text||""}${p.image?`<img src="${p.image}">`:""}</div>`;
   }
  });
-
  document.getElementById("myPosts").innerHTML=html;
 }
 
@@ -281,34 +309,26 @@ window.sendMessage=async function(){
   user,message:msg
  });
 
- document.getElementById("chatInput").value="";
  loadChat();
 }
 
 async function loadChat(){
  let snap=await getDocs(collection(db,"chat"));
  let html="";
-
  snap.forEach(d=>{
   let m=d.data();
   html+=`<div class="card"><b>${m.user}</b>: ${m.message}</div>`;
  });
-
  document.getElementById("chatBox").innerHTML=html;
 
- // auto scroll
  let box=document.getElementById("chatBox");
  box.scrollTop=box.scrollHeight;
 }
 
-// 🔥 AUTO REFRESH
+// AUTO REFRESH
 setInterval(()=>{
- let feedVisible=document.getElementById("feedSection").style.display!=="none";
- let chatVisible=document.getElementById("chatSection").style.display!=="none";
-
- if(feedVisible) load();
- if(chatVisible) loadChat();
-
+ if(document.getElementById("feedSection").style.display!=="none") load();
+ if(document.getElementById("chatSection").style.display!=="none") loadChat();
 },3000);
 
 </script>
