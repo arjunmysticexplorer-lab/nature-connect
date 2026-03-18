@@ -66,23 +66,19 @@ button {
 
 <div id="app" style="display:none;">
 
-<!-- FEED -->
 <div id="feedSection">
 <input id="text" placeholder="Write post">
 <input type="file" id="imageInput">
 <button onclick="post()">Post</button>
-
 <div id="feed"></div>
 </div>
 
-<!-- PROFILE -->
 <div id="profileSection" style="display:none;">
 <h2 id="profileName"></h2>
 <p id="postCount"></p>
 <div id="profilePosts"></div>
 </div>
 
-<!-- NOTIFICATIONS -->
 <div id="notificationSection" style="display:none;">
 <h2>🔔 Notifications</h2>
 <div id="notifications"></div>
@@ -154,7 +150,7 @@ window.post = async () => {
        comments:[],
        likes:0
      });
-     reset();
+     load();
    };
 
    reader.readAsDataURL(file);
@@ -167,26 +163,29 @@ window.post = async () => {
      comments:[],
      likes:0
    });
-   reset();
+   load();
  }
 };
 
-function reset(){
- document.getElementById("text").value="";
- document.getElementById("imageInput").value="";
- load();
-}
-
-// ❤️ LIKE SYSTEM
-window.likePost = async(id,likes)=>{
+// ❤️ LIKE
+window.likePost = async(id,likes,owner)=>{
  await updateDoc(doc(db,"posts",id),{
   likes: (likes || 0) + 1
  });
+
+ // 🔔 Notification
+ if(owner !== user){
+   await addDoc(collection(db,"notifications"),{
+     text: user + " liked your post",
+     to: owner
+   });
+ }
+
  load();
 };
 
-// COMMENT
-window.addComment = async(id)=>{
+// 💬 COMMENT
+window.addComment = async(id,owner)=>{
  let input=document.getElementById("c-"+id);
  let text=input.value.trim();
  if(!text) return;
@@ -203,6 +202,14 @@ window.addComment = async(id)=>{
  comments.push(user+": "+text);
 
  await updateDoc(doc(db,"posts",id),{comments});
+
+ // 🔔 Notification
+ if(owner !== user){
+   await addDoc(collection(db,"notifications"),{
+     text: user + " commented: " + text,
+     to: owner
+   });
+ }
 
  input.value="";
  load();
@@ -227,7 +234,7 @@ async function load(){
       : ""}
 
     ❤️ ${p.likes || 0}
-    <button onclick="likePost('${id}',${p.likes||0})">Like</button>
+    <button onclick="likePost('${id}',${p.likes||0},'${p.user}')">Like</button>
 
     ${(p.comments||[]).map(c=>`
       <div style="background:#0f2f0f;padding:8px;border-radius:10px;margin-top:5px;">
@@ -236,7 +243,7 @@ async function load(){
     `).join("")}
 
     <input id="c-${id}" placeholder="Write comment...">
-    <button onclick="addComment('${id}')">Send</button>
+    <button onclick="addComment('${id}','${p.user}')">Send</button>
   </div>
   `;
  });
@@ -261,9 +268,7 @@ async function loadProfile(){
     <div class="card">
       <p>${p.text}</p>
       ❤️ ${p.likes || 0}
-      ${p.image && p.image.startsWith("data:image")
-        ? `<img src="${p.image}" style="width:100%;border-radius:10px;">`
-        : ""}
+      ${p.image ? `<img src="${p.image}" style="width:100%;border-radius:10px;">` : ""}
     </div>
     `;
   }
@@ -274,9 +279,20 @@ async function loadProfile(){
  document.getElementById("profilePosts").innerHTML=html;
 }
 
-// NOTIFICATIONS
+// 🔔 LOAD NOTIFICATIONS
 async function loadNotifications(){
- document.getElementById("notifications").innerHTML="Coming soon...";
+ let snap=await getDocs(collection(db,"notifications"));
+ let html="";
+
+ snap.forEach(d=>{
+  let n=d.data();
+
+  if(n.to === user){
+    html+=`<div class="card">${n.text}</div>`;
+  }
+ });
+
+ document.getElementById("notifications").innerHTML=html || "No notifications";
 }
 
 // KEYBOARD FIX
