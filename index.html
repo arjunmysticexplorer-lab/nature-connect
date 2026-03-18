@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Nature Connect</title>
+<style>
+ body { font-family: Arial; text-align:center; background:#0b1d0b; color:white;}
+ button { padding:10px; margin:10px; }
+ input { padding:10px; }
+</style>
+</head>
+
+<body>
+
+<h1>🌍 Nature Connect</h1>
+
+<h3>Share your nature moments</h3>
+
+<input id="text" placeholder="Write something..." />
+<br>
+<button onclick="post()">Post</button>
+
+<h2>Feed</h2>
+<div id="feed"></div>
+
+<h2>AI Assistant 🤖</h2>
+<input id="aiInput" placeholder="Ask something..." />
+<button onclick="aiReply()">Ask AI</button>
+<p id="aiOutput"></p>
+
+<script>
+
+let posts = []
+
+function post(){
+ let text = document.getElementById("text").value
+ if(text !== ""){
+  posts.unshift(text)
+  show()
+ }
+}
+
+function show(){
+ let html = ""
+ posts.forEach(p=>{
+  html += "<p>🌿 "+p+"</p>"
+ })
+ document.getElementById("feed").innerHTML = html
+}
+
+function aiReply(){
+ let input = document.getElementById("aiInput").value.toLowerCase()
+ let reply = ""
+
+ if(input.includes("hello")){
+  reply = "Hello! Welcome to Nature Connect 🌿"
+ }
+ else if(input.includes("nature")){
+  reply = "Nature is peaceful and powerful 🌄"
+ }
+ else{
+  reply = "I am learning... ask about nature 🙂"
+ }
+
+ document.getElementById("aiOutput").innerText = reply
+}
+
+</script>
+
+</body>
+</html>
