@@ -5,7 +5,7 @@
 
 <style>
 body {
-  font-family: 'Segoe UI', sans-serif;
+  font-family: Arial;
   background: #0b1d0b;
   color: white;
   margin: 0;
@@ -13,48 +13,34 @@ body {
 
 h1 {
   background: #0f2f0f;
-  padding: 15px;
-  margin: 0;
+  padding: 10px;
 }
 
 input {
   width: 90%;
-  padding: 12px;
-  margin: 8px;
-  border-radius: 12px;
+  padding: 10px;
+  margin: 5px;
+  border-radius: 10px;
   border: none;
-  background: #1a2e1a;
-  color: white;
 }
 
 button {
-  padding: 10px;
-  border-radius: 20px;
+  padding: 8px;
+  border-radius: 10px;
   border: none;
-  background: #00c853;
-  margin: 5px;
+  background: green;
+  color: white;
 }
 
 .card {
   background: #1a2e1a;
   margin: 10px;
-  padding: 12px;
-  border-radius: 15px;
-}
-
-img {
-  width: 100%;
+  padding: 10px;
   border-radius: 10px;
 }
 
 #feedSection {
-  padding-bottom: 120px;
-}
-
-/* 🔥 keyboard fix */
-html, body {
-  height: 100%;
-  overflow-x: hidden;
+  padding-bottom: 150px;
 }
 </style>
 
@@ -62,36 +48,18 @@ html, body {
 
 <body>
 
-<h1>🌍 Nature Connect</h1>
+<h1>Nature Connect</h1>
 
-<div id="loginPage">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
-</div>
 
-<div id="appPage" style="display:none;">
+<div id="app" style="display:none;">
 
-<h2 id="welcome"></h2>
+<input id="postText" placeholder="Write post">
+<button onclick="addPost()">Post</button>
 
-<button onclick="showFeed()">Feed</button>
-<button onclick="showChat()">Chat</button>
-<button onclick="showNotifications()">🔔</button>
-<button onclick="logout()">Logout</button>
-
-<div id="feedSection">
-<input id="text" placeholder="Write post">
-<button onclick="post()">Post</button>
 <div id="feed"></div>
-</div>
 
-<div id="chatSection" style="display:none;">
-<div id="chatBox"></div>
-<input id="chatInput">
-<button onclick="sendMessage()">Send</button>
-</div>
-
-<div id="notifSection" style="display:none;">
-<div id="notifBox"></div>
 </div>
 
 <script type="module">
@@ -106,80 +74,43 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 
-let user = localStorage.getItem("user") || "";
-
-if(user) showApp();
+let user="";
 
 window.login=()=>{
  user=document.getElementById("username").value;
- localStorage.setItem("user",user);
- showApp();
-}
-
-window.logout=()=>{
- localStorage.removeItem("user");
- location.reload();
-}
-
-function showApp(){
- document.getElementById("loginPage").style.display="none";
- document.getElementById("appPage").style.display="block";
- document.getElementById("welcome").innerText=user;
+ document.getElementById("app").style.display="block";
  load();
-}
-
-window.showFeed=()=>{
- document.getElementById("feedSection").style.display="block";
- document.getElementById("chatSection").style.display="none";
- document.getElementById("notifSection").style.display="none";
-}
-
-window.showChat=()=>{
- document.getElementById("feedSection").style.display="none";
- document.getElementById("chatSection").style.display="block";
- loadChat();
-}
-
-window.showNotifications=()=>{
- document.getElementById("feedSection").style.display="none";
- document.getElementById("chatSection").style.display="none";
- document.getElementById("notifSection").style.display="block";
- loadNotifications();
 }
 
 // POST
-window.post=async()=>{
- let text=document.getElementById("text").value;
- await addDoc(collection(db,"posts"),{user,text,likes:0,comments:[]});
+window.addPost=async()=>{
+ let text=document.getElementById("postText").value;
+ await addDoc(collection(db,"posts"),{
+  user,text,likes:0,comments:[]
+ });
  load();
 }
 
-// LIKE
-window.likePost=async(id,likes)=>{
- await updateDoc(doc(db,"posts",id),{likes:likes+1});
- await addDoc(collection(db,"notifications"),{text:user+" liked post"});
- load();
-}
-
-// 🔥 COMMENT FIXED
+// COMMENT (FIXED SIMPLE)
 window.addComment=async(id)=>{
- let input=document.getElementById("comment-"+id);
- let text=input.value.trim();
+ let input=document.getElementById("c-"+id);
+ let text=input.value;
  if(!text)return;
 
- let snap=await getDocs(collection(db,"posts"));
+ let ref = doc(db,"posts",id);
+
+ let snap = await getDocs(collection(db,"posts"));
  let comments=[];
 
  snap.forEach(d=>{
   if(d.id===id){
-    comments=d.data().comments||[];
+    comments=d.data().comments || [];
   }
  });
 
  comments.push(user+": "+text);
 
- await updateDoc(doc(db,"posts",id),{comments});
- await addDoc(collection(db,"notifications"),{text:user+" commented"});
+ await updateDoc(ref,{comments});
 
  input.value="";
  load();
@@ -191,60 +122,30 @@ async function load(){
  let html="";
 
  snap.forEach(d=>{
-  let p=d.data();let id=d.id;
+  let p=d.data();
+  let id=d.id;
 
-  html+=`<div class="card">
-  <b>${p.user}</b>
-  <p>${p.text||""}</p>
-  ❤️ ${p.likes}
-  <button onclick="likePost('${id}',${p.likes})">Like</button>
-  ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
-  <input id="comment-${id}">
-  <button onclick="addComment('${id}')">Send</button>
-  </div>`;
+  html+=`
+  <div class="card">
+    <b>${p.user}</b>
+    <p>${p.text}</p>
+
+    ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
+
+    <input id="c-${id}" placeholder="Comment">
+    <button onclick="addComment('${id}')">Send</button>
+  </div>
+  `;
  });
 
  document.getElementById("feed").innerHTML=html;
 }
 
-// CHAT
-window.sendMessage=async()=>{
- let msg=document.getElementById("chatInput").value;
- await addDoc(collection(db,"chat"),{user,message:msg});
- loadChat();
-}
-
-async function loadChat(){
- let snap=await getDocs(collection(db,"chat"));
- let html="";
- snap.forEach(d=>{
-  let m=d.data();
-  html+=`<div class="card">${m.user}: ${m.message}</div>`;
- });
- document.getElementById("chatBox").innerHTML=html;
-}
-
-// NOTIFICATIONS
-async function loadNotifications(){
- let snap=await getDocs(collection(db,"notifications"));
- let html="";
- snap.forEach(d=>{
-  html+=`<div class="card">${d.data().text}</div>`;
- });
- document.getElementById("notifBox").innerHTML=html;
-}
-
-// 🔄 AUTO REFRESH
-setInterval(()=>{
- load();
- loadChat();
-},3000);
-
 // 🔥 keyboard fix
 document.addEventListener("focusin",(e)=>{
  if(e.target.tagName==="INPUT"){
   setTimeout(()=>{
-    e.target.scrollIntoView({behavior:"smooth",block:"center"});
+    e.target.scrollIntoView({block:"center"});
   },300);
  }
 });
