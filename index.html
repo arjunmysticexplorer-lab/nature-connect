@@ -54,6 +54,22 @@
  }
 </style>
 
+<!-- 🔥 Firebase connection (HEAD में सही जगह) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
+    authDomain: "nature-connect-a1592.firebaseapp.com",
+    projectId: "nature-connect-a1592",
+    storageBucket: "nature-connect-a1592.firebasestorage.app",
+    messagingSenderId: "734768119211",
+    appId: "1:734768119211:web:7633f476bc22d8d552e6ee"
+  };
+
+  const app = initializeApp(firebaseConfig);
+</script>
+
 </head>
 
 <body>
@@ -132,8 +148,6 @@ function post(){
  let posts = getPosts()
 
  let imageURL = null
-
- // 🔥 MOBILE SAFE IMAGE
  if(file){
    imageURL = URL.createObjectURL(file)
  }
