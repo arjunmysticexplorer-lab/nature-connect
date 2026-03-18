@@ -21,30 +21,29 @@ h1 {
 input {
   width: 90%;
   padding: 12px;
-  margin: 8px;
-  border-radius: 12px;
+  margin: 10px;
+  border-radius: 20px;
   border: none;
   font-size: 16px;
+  background: #0f2f0f;
+  color: white;
 }
 
 button {
   padding: 10px;
   border-radius: 20px;
   border: none;
-  background: #00c853;
+  background: linear-gradient(45deg,#00c853,#64dd17);
   margin: 5px;
   color: white;
 }
 
 .card {
   background: #1a2e1a;
-  margin: 10px;
-  padding: 12px;
+  margin: 15px;
+  padding: 15px;
   border-radius: 15px;
-}
-
-.nav {
-  text-align: center;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
 }
 </style>
 
@@ -54,39 +53,17 @@ button {
 
 <h1>🌍 Nature Connect</h1>
 
-<div id="loginPage">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
-</div>
 
-<div id="appPage" style="display:none;">
+<div id="app" style="display:none;">
 
-<h2 id="welcome"></h2>
-
-<div class="nav">
-<button onclick="showFeed()">Feed</button>
-<button onclick="showChat()">Chat</button>
-<button onclick="showNotifications()">🔔</button>
-<button onclick="logout()">Logout</button>
-</div>
-
-<!-- FEED -->
-<div id="feedSection">
 <input id="text" placeholder="Write post">
+<input type="file" id="imageInput">
 <button onclick="post()">Post</button>
+
 <div id="feed"></div>
-</div>
 
-<!-- CHAT -->
-<div id="chatSection" style="display:none;">
-<div id="chatBox"></div>
-<input id="chatInput" placeholder="Type message">
-<button onclick="sendMessage()">Send</button>
-</div>
-
-<!-- NOTIFICATIONS -->
-<div id="notifSection" style="display:none;">
-<div id="notifBox"></div>
 </div>
 
 <script type="module">
@@ -101,74 +78,54 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 
-let user = localStorage.getItem("user") || "";
+let user="";
 
-if(user) showApp();
-
-// LOGIN
 window.login=()=>{
- user=document.getElementById("username").value.trim();
- if(!user) return alert("Enter name");
- localStorage.setItem("user",user);
- showApp();
-}
-
-window.logout=()=>{
- localStorage.removeItem("user");
- location.reload();
-}
-
-function showApp(){
- document.getElementById("loginPage").style.display="none";
- document.getElementById("appPage").style.display="block";
- document.getElementById("welcome").innerText="Welcome "+user;
+ user=document.getElementById("username").value;
+ document.getElementById("app").style.display="block";
  load();
-}
+};
 
-// NAV
-window.showFeed=()=>{
- document.getElementById("feedSection").style.display="block";
- document.getElementById("chatSection").style.display="none";
- document.getElementById("notifSection").style.display="none";
-}
+// POST WITH IMAGE
+window.post = async () => {
+  let text = document.getElementById("text").value.trim();
+  let file = document.getElementById("imageInput").files[0];
 
-window.showChat=()=>{
- document.getElementById("feedSection").style.display="none";
- document.getElementById("chatSection").style.display="block";
- document.getElementById("notifSection").style.display="none";
- loadChat();
-}
+  if(file){
+    let reader = new FileReader();
 
-window.showNotifications=()=>{
- document.getElementById("feedSection").style.display="none";
- document.getElementById("chatSection").style.display="none";
- document.getElementById("notifSection").style.display="block";
- loadNotifications();
-}
+    reader.onloadend = async () => {
+      let imageBase64 = reader.result;
 
-// POST
-window.post=async()=>{
- let text=document.getElementById("text").value.trim();
- if(!text) return;
+      await addDoc(collection(db,"posts"),{
+        user,
+        text,
+        image:imageBase64,
+        comments:[]
+      });
 
- await addDoc(collection(db,"posts"),{
-  user,text,likes:0,comments:[]
- });
+      document.getElementById("text").value="";
+      document.getElementById("imageInput").value="";
+      load();
+    };
 
- document.getElementById("text").value="";
- load();
-}
+    reader.readAsDataURL(file);
 
-// LIKE
-window.likePost=async(id,likes)=>{
- await updateDoc(doc(db,"posts",id),{likes:likes+1});
- await addDoc(collection(db,"notifications"),{text:user+" liked a post"});
- load();
-}
+  } else {
+    await addDoc(collection(db,"posts"),{
+      user,
+      text,
+      image:"",
+      comments:[]
+    });
 
-// COMMENT FIX
-window.addComment=async(id)=>{
- let input=document.getElementById("comment-"+id);
+    load();
+  }
+};
+
+// COMMENT
+window.addComment = async(id)=>{
+ let input=document.getElementById("c-"+id);
  let text=input.value.trim();
  if(!text) return;
 
@@ -185,15 +142,11 @@ window.addComment=async(id)=>{
 
  await updateDoc(doc(db,"posts",id),{comments});
 
- await addDoc(collection(db,"notifications"),{
-  text:user+" commented: "+text
- });
-
  input.value="";
  load();
-}
+};
 
-// LOAD FEED
+// LOAD POSTS
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -202,68 +155,34 @@ async function load(){
   let p=d.data();
   let id=d.id;
 
-  html+=`<div class="card">
-  <b>${p.user}</b>
-  <p>${p.text}</p>
+  html+=`
+  <div class="card">
+    <b>${p.user}</b>
+    <p>${p.text}</p>
 
-  ❤️ ${p.likes}
-  <button onclick="likePost('${id}',${p.likes})">Like</button>
+    ${p.image ? `<img src="${p.image}" style="width:100%;border-radius:10px;margin-top:10px;">` : ""}
 
-  ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
+    ${(p.comments||[]).map(c=>`
+      <div style="background:#0f2f0f;padding:8px;border-radius:10px;margin-top:5px;font-size:14px;">
+        ${c}
+      </div>
+    `).join("")}
 
-  <input id="comment-${id}" placeholder="Write comment...">
-  <button onclick="addComment('${id}')">Send</button>
-  </div>`;
+    <input id="c-${id}" placeholder="Write comment...">
+    <button onclick="addComment('${id}')">Send</button>
+  </div>
+  `;
  });
 
  document.getElementById("feed").innerHTML=html;
 }
 
-// CHAT
-window.sendMessage=async()=>{
- let msg=document.getElementById("chatInput").value.trim();
- if(!msg) return;
-
- await addDoc(collection(db,"chat"),{
-  user,message:msg
- });
-
- document.getElementById("chatInput").value="";
- loadChat();
-}
-
-async function loadChat(){
- let snap=await getDocs(collection(db,"chat"));
- let html="";
- snap.forEach(d=>{
-  let m=d.data();
-  html+=`<div class="card">${m.user}: ${m.message}</div>`;
- });
- document.getElementById("chatBox").innerHTML=html;
-}
-
-// NOTIFICATIONS
-async function loadNotifications(){
- let snap=await getDocs(collection(db,"notifications"));
- let html="";
- snap.forEach(d=>{
-  html+=`<div class="card">${d.data().text}</div>`;
- });
- document.getElementById("notifBox").innerHTML=html;
-}
-
-// AUTO REFRESH
-setInterval(()=>{
- load();
- loadChat();
-},3000);
-
-// 🔥 KEYBOARD FIX FINAL
+// KEYBOARD FIX
 document.addEventListener("focusin",(e)=>{
  if(e.target.tagName==="INPUT"){
   setTimeout(()=>{
     e.target.scrollIntoView({behavior:"smooth",block:"center"});
-  },400);
+  },300);
  }
 });
 
