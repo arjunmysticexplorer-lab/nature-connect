@@ -2,35 +2,68 @@
 <html>
 <head>
 <title>Nature Connect</title>
+
 <style>
  body {
    font-family: Arial;
-   text-align: center;
-   background: #0b1d0b;
+   background: linear-gradient(to bottom, #0b1d0b, #1f3d1f);
    color: white;
+   margin: 0;
+   text-align: center;
  }
- button {
-   padding: 10px;
-   margin: 10px;
+
+ h1 {
+   background: black;
+   padding: 15px;
+   margin: 0;
  }
+
+ .container {
+   padding: 20px;
+ }
+
  input {
    padding: 10px;
- }
- img {
-   width: 200px;
-   margin-top: 10px;
+   width: 80%;
+   margin: 5px;
    border-radius: 10px;
+   border: none;
+ }
+
+ button {
+   padding: 10px 20px;
+   margin: 10px;
+   border: none;
+   border-radius: 20px;
+   background: green;
+   color: white;
+   font-weight: bold;
+ }
+
+ .card {
+   background: #1a2e1a;
+   padding: 15px;
+   margin: 10px;
+   border-radius: 15px;
+ }
+
+ img {
+   width: 100%;
+   border-radius: 10px;
+   margin-top: 10px;
  }
 </style>
+
 </head>
 
 <body>
 
 <h1>🌍 Nature Connect</h1>
-<h3>Share your nature moments</h3>
 
-<input id="text" placeholder="Write something..." />
-<br><br>
+<div class="container">
+
+<input id="text" placeholder="Share your moment..." />
+<br>
 
 <input type="file" id="imageInput" accept="image/*" />
 <br>
@@ -45,9 +78,10 @@
 <button onclick="aiReply()">Ask AI</button>
 <p id="aiOutput"></p>
 
+</div>
+
 <script>
 
-// Load saved posts
 let posts = JSON.parse(localStorage.getItem("posts")) || []
 show()
 
@@ -92,17 +126,17 @@ function show(){
  let html = ""
 
  posts.forEach(p=>{
-   html += "<div>"
+   html += "<div class='card'>"
 
    if(p.text){
-     html += "<p>🌿 " + p.text + "</p>"
+     html += "<p>" + p.text + "</p>"
    }
 
    if(p.image){
      html += "<img src='" + p.image + "'/>"
    }
 
-   html += "</div><hr>"
+   html += "</div>"
  })
 
  document.getElementById("feed").innerHTML = html
@@ -113,16 +147,13 @@ function aiReply(){
  let reply = ""
 
  if(input.includes("hello")){
-  reply = "Hello! Welcome to Nature Connect 🌿"
+  reply = "Hello! Welcome to Nature 🌿"
  }
  else if(input.includes("nature")){
-  reply = "Nature is peaceful and powerful 🌄"
- }
- else if(input.includes("mountain")){
-  reply = "Mountains are calm and powerful 🏔️"
+  reply = "Nature is peace 🌄"
  }
  else{
-  reply = "I am learning... ask about nature 🙂"
+  reply = "Ask about nature 🙂"
  }
 
  document.getElementById("aiOutput").innerText = reply
