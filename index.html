@@ -85,11 +85,6 @@
 <h2>Feed</h2>
 <div id="feed"></div>
 
-<h2>AI Assistant 🤖</h2>
-<input id="aiInput" placeholder="Ask something..." />
-<button onclick="aiReply()">Ask AI</button>
-<p id="aiOutput"></p>
-
 </div>
 
 <script>
@@ -134,18 +129,19 @@ function post(){
 
  let posts = getPosts()
 
+ // 🔥 SIMPLE FIX: image + text both handle clean
  if(file){
    let reader = new FileReader()
 
-   reader.onload = function(event){
+   reader.onload = function(e){
      let postData = {
        text: text,
-       image: event.target.result
+       image: e.target.result
      }
 
      posts.unshift(postData)
      savePosts(posts)
-     loadPosts()
+     render(posts)
    }
 
    reader.readAsDataURL(file)
@@ -158,15 +154,14 @@ function post(){
 
    posts.unshift(postData)
    savePosts(posts)
-   loadPosts()
+   render(posts)
  }
 
  document.getElementById("text").value = ""
  fileInput.value = ""
 }
 
-function loadPosts(){
- let posts = getPosts()
+function render(posts){
  let html = ""
 
  posts.forEach(p=>{
@@ -183,24 +178,9 @@ function showApp(){
  document.getElementById("loginPage").style.display = "none"
  document.getElementById("appPage").style.display = "block"
  document.getElementById("welcome").innerText = "Welcome " + currentUser
- loadPosts()
-}
 
-function aiReply(){
- let input = document.getElementById("aiInput").value.toLowerCase()
- let reply = ""
-
- if(input.includes("hello")){
-  reply = "Hello! Welcome 🌿"
- }
- else if(input.includes("nature")){
-  reply = "Nature is peace 🌄"
- }
- else{
-  reply = "Ask about nature 🙂"
- }
-
- document.getElementById("aiOutput").innerText = reply
+ let posts = getPosts()
+ render(posts)
 }
 
 </script>
