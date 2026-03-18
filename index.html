@@ -9,22 +9,22 @@ body {
   background: #0b1d0b;
   color: white;
   margin: 0;
-  padding-bottom: 300px;
 }
 
-h1 {
-  background: #0f2f0f;
-  padding: 12px;
-  margin: 0;
+.topbar {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#0f2f0f;
+  padding:10px;
 }
 
 input {
-  width: 90%;
+  width: 85%;
   padding: 12px;
-  margin: 10px;
+  margin: 8px;
   border-radius: 20px;
   border: none;
-  font-size: 16px;
   background: #0f2f0f;
   color: white;
 }
@@ -34,7 +34,6 @@ button {
   border-radius: 20px;
   border: none;
   background: linear-gradient(45deg,#00c853,#64dd17);
-  margin: 5px;
   color: white;
 }
 
@@ -43,7 +42,6 @@ button {
   margin: 15px;
   padding: 15px;
   border-radius: 15px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
 }
 </style>
 
@@ -51,18 +49,40 @@ button {
 
 <body>
 
-<h1>🌍 Nature Connect</h1>
+<div class="topbar">
+<h2>🌍 Nature Connect</h2>
 
+<div>
+<button onclick="showFeed()">🏠</button>
+<button onclick="showProfile()">👤</button>
+<button onclick="showNotifications()">🔔</button>
+</div>
+</div>
+
+<div id="loginPage">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
+</div>
 
 <div id="app" style="display:none;">
 
+<div id="feedSection">
 <input id="text" placeholder="Write post">
 <input type="file" id="imageInput">
 <button onclick="post()">Post</button>
-
 <div id="feed"></div>
+</div>
+
+<div id="profileSection" style="display:none;">
+<h2 id="profileName"></h2>
+<p id="postCount"></p>
+<div id="profilePosts"></div>
+</div>
+
+<div id="notificationSection" style="display:none;">
+<h2>🔔 Notifications</h2>
+<div id="notifications"></div>
+</div>
 
 </div>
 
@@ -78,50 +98,84 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 
-let user="";
+let user = "";
 
+// LOGIN
 window.login=()=>{
- user=document.getElementById("username").value;
+ user=document.getElementById("username").value.trim();
+ if(!user) return alert("Enter name");
+
  document.getElementById("app").style.display="block";
+ document.getElementById("loginPage").style.display="none";
+
  load();
 };
 
-// POST WITH IMAGE
-window.post = async () => {
-  let text = document.getElementById("text").value.trim();
-  let file = document.getElementById("imageInput").files[0];
-
-  if(file){
-    let reader = new FileReader();
-
-    reader.onloadend = async () => {
-      let imageBase64 = reader.result;
-
-      await addDoc(collection(db,"posts"),{
-        user,
-        text,
-        image:imageBase64,
-        comments:[]
-      });
-
-      document.getElementById("text").value="";
-      document.getElementById("imageInput").value="";
-      load();
-    };
-
-    reader.readAsDataURL(file);
-
-  } else {
-    await addDoc(collection(db,"posts"),{
-      user,
-      text,
-      image:"",
-      comments:[]
-    });
-
-    load();
-  }
+// NAV
+window.showFeed=()=>{
+ document.getElementById("feedSection").style.display="block";
+ document.getElementById("profileSection").style.display="none";
+ document.getElementById("notificationSection").style.display="none";
 };
+
+window.showProfile=()=>{
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("profileSection").style.display="block";
+ document.getElementById("notificationSection").style.display="none";
+
+ loadProfile();
+};
+
+window.showNotifications=()=>{
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("profileSection").style.display="none";
+ document.getElementById("notificationSection").style.display="block";
+
+ loadNotifications();
+};
+
+// POST
+window.post = async () => {
+ let text = document.getElementById("text").value.trim();
+ let file = document.getElementById("imageInput").files[0];
+
+ if(!text && !file) return;
+
+ if(file){
+   let reader = new FileReader();
+
+   reader.onloadend = async () => {
+     await addDoc(collection(db,"posts"),{
+       user,
+       text,
+       image:reader.result,
+       comments:[]
+     });
+
+     reset();
+   };
+
+   reader.readAsDataURL(file);
+
+ } else {
+
+   await addDoc(collection(db,"posts"),{
+     user,
+     text,
+     image:"",
+     comments:[]
+   });
+
+   reset();
+ }
+};
+
+// RESET INPUT
+function reset(){
+ document.getElementById("text").value="";
+ document.getElementById("imageInput").value="";
+ load();
+}
 
 // COMMENT
 window.addComment = async(id)=>{
@@ -146,7 +200,7 @@ window.addComment = async(id)=>{
  load();
 };
 
-// LOAD POSTS
+// LOAD FEED
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -160,10 +214,12 @@ async function load(){
     <b>${p.user}</b>
     <p>${p.text}</p>
 
-    ${p.image ? `<img src="${p.image}" style="width:100%;border-radius:10px;margin-top:10px;">` : ""}
+    ${p.image && p.image.startsWith("data:image")
+      ? `<img src="${p.image}" style="width:100%;border-radius:10px;">`
+      : ""}
 
     ${(p.comments||[]).map(c=>`
-      <div style="background:#0f2f0f;padding:8px;border-radius:10px;margin-top:5px;font-size:14px;">
+      <div style="background:#0f2f0f;padding:8px;border-radius:10px;margin-top:5px;">
         ${c}
       </div>
     `).join("")}
@@ -175,6 +231,51 @@ async function load(){
  });
 
  document.getElementById("feed").innerHTML=html;
+}
+
+// PROFILE
+async function loadProfile(){
+ let snap=await getDocs(collection(db,"posts"));
+
+ let count=0;
+ let html="";
+
+ snap.forEach(d=>{
+  let p=d.data();
+
+  if(p.user===user){
+    count++;
+
+    html+=`
+    <div class="card">
+      <p>${p.text}</p>
+      ${p.image && p.image.startsWith("data:image")
+        ? `<img src="${p.image}" style="width:100%;border-radius:10px;">`
+        : ""}
+    </div>
+    `;
+  }
+ });
+
+ document.getElementById("profileName").innerText=user;
+ document.getElementById("postCount").innerText="Posts: "+count;
+ document.getElementById("profilePosts").innerHTML=html;
+}
+
+// NOTIFICATIONS
+async function loadNotifications(){
+ let snap=await getDocs(collection(db,"posts"));
+ let html="";
+
+ snap.forEach(d=>{
+  let p=d.data();
+
+  if((p.comments||[]).some(c=>c.startsWith(user))){
+    html+=`<div class="card">💬 Someone replied to you</div>`;
+  }
+ });
+
+ document.getElementById("notifications").innerHTML=html || "No notifications";
 }
 
 // KEYBOARD FIX
