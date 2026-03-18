@@ -16,6 +16,11 @@
  input {
    padding: 10px;
  }
+ img {
+   width: 200px;
+   margin-top: 10px;
+   border-radius: 10px;
+ }
 </style>
 </head>
 
@@ -25,7 +30,11 @@
 <h3>Share your nature moments</h3>
 
 <input id="text" placeholder="Write something..." />
+<br><br>
+
+<input type="file" id="imageInput" accept="image/*" />
 <br>
+
 <button onclick="post()">Post</button>
 
 <h2>Feed</h2>
@@ -44,18 +53,40 @@ show()
 
 function post(){
  let text = document.getElementById("text").value
- if(text !== ""){
-  posts.unshift(text)
-  localStorage.setItem("posts", JSON.stringify(posts))
-  show()
+ let file = document.getElementById("imageInput").files[0]
+
+ if(text !== "" || file){
+  let reader = new FileReader()
+
+  reader.onload = function(){
+    let postData = {
+      text: text,
+      image: reader.result
+    }
+
+    posts.unshift(postData)
+    localStorage.setItem("posts", JSON.stringify(posts))
+    show()
+  }
+
+  if(file){
+    reader.readAsDataURL(file)
+  } else {
+    reader.onload()
+  }
+
   document.getElementById("text").value = ""
+  document.getElementById("imageInput").value = ""
  }
 }
 
 function show(){
  let html = ""
  posts.forEach(p=>{
-  html += "<p>🌿 " + p + "</p>"
+  html += "<div>"
+  if(p.text) html += "<p>🌿 " + p.text + "</p>"
+  if(p.image) html += "<img src='" + p.image + "'/>"
+  html += "</div><hr>"
  })
  document.getElementById("feed").innerHTML = html
 }
