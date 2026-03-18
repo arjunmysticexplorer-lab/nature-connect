@@ -9,7 +9,7 @@ body {
   background: #0b1d0b;
   color: white;
   margin: 0;
-  padding-bottom: 200px; /* 🔥 keyboard space */
+  padding-bottom: 300px;
 }
 
 h1 {
@@ -24,7 +24,7 @@ input {
   margin: 8px;
   border-radius: 12px;
   border: none;
-  font-size:16px; /* 🔥 iPhone fix */
+  font-size: 16px;
 }
 
 button {
@@ -33,6 +33,7 @@ button {
   border: none;
   background: #00c853;
   margin: 5px;
+  color: white;
 }
 
 .card {
@@ -44,11 +45,6 @@ button {
 
 .nav {
   text-align: center;
-}
-
-#chatBox {
-  max-height: 300px;
-  overflow-y: scroll;
 }
 </style>
 
@@ -84,7 +80,7 @@ button {
 <!-- CHAT -->
 <div id="chatSection" style="display:none;">
 <div id="chatBox"></div>
-<input id="chatInput">
+<input id="chatInput" placeholder="Type message">
 <button onclick="sendMessage()">Send</button>
 </div>
 
@@ -170,7 +166,7 @@ window.likePost=async(id,likes)=>{
  load();
 }
 
-// 🔥 COMMENT FINAL FIX
+// COMMENT FIX
 window.addComment=async(id)=>{
  let input=document.getElementById("comment-"+id);
  let text=input.value.trim();
@@ -244,9 +240,6 @@ async function loadChat(){
   html+=`<div class="card">${m.user}: ${m.message}</div>`;
  });
  document.getElementById("chatBox").innerHTML=html;
-
- let box=document.getElementById("chatBox");
- box.scrollTop=box.scrollHeight;
 }
 
 // NOTIFICATIONS
@@ -259,7 +252,7 @@ async function loadNotifications(){
  document.getElementById("notifBox").innerHTML=html;
 }
 
-// 🔄 AUTO REFRESH
+// AUTO REFRESH
 setInterval(()=>{
  load();
  loadChat();
