@@ -3,16 +3,25 @@
 <head>
 <title>Nature Connect</title>
 <style>
- body { font-family: Arial; text-align:center; background:#0b1d0b; color:white;}
- button { padding:10px; margin:10px; }
- input { padding:10px; }
+ body {
+   font-family: Arial;
+   text-align: center;
+   background: #0b1d0b;
+   color: white;
+ }
+ button {
+   padding: 10px;
+   margin: 10px;
+ }
+ input {
+   padding: 10px;
+ }
 </style>
 </head>
 
 <body>
 
 <h1>🌍 Nature Connect</h1>
-
 <h3>Share your nature moments</h3>
 
 <input id="text" placeholder="Write something..." />
@@ -36,13 +45,14 @@ function post(){
  if(text !== ""){
   posts.unshift(text)
   show()
+  document.getElementById("text").value = ""
  }
 }
 
 function show(){
  let html = ""
  posts.forEach(p=>{
-  html += "<p>🌿 "+p+"</p>"
+  html += "<p>🌿 " + p + "</p>"
  })
  document.getElementById("feed").innerHTML = html
 }
@@ -56,6 +66,9 @@ function aiReply(){
  }
  else if(input.includes("nature")){
   reply = "Nature is peaceful and powerful 🌄"
+ }
+ else if(input.includes("mountain")){
+  reply = "Mountains are calm and powerful 🏔️"
  }
  else{
   reply = "I am learning... ask about nature 🙂"
