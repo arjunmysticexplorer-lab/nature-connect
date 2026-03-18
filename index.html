@@ -30,18 +30,19 @@ input {
 }
 
 button {
-  padding: 10px;
+  padding: 8px;
   border-radius: 20px;
   border: none;
   background: linear-gradient(45deg,#00c853,#64dd17);
   color: white;
+  margin:3px;
 }
 
 .card {
-  background: #1a2e1a;
-  margin: 15px;
-  padding: 15px;
-  border-radius: 15px;
+  background:#1a2e1a;
+  margin:10px;
+  padding:10px;
+  border-radius:10px;
 }
 </style>
 
@@ -50,7 +51,7 @@ button {
 <body>
 
 <div class="topbar">
-<h2>🌍 Nature Connect</h2>
+<h3>🌍 Nature Connect</h3>
 
 <div>
 <button onclick="showFeed()">🏠</button>
@@ -66,6 +67,7 @@ button {
 
 <div id="app" style="display:none;">
 
+<!-- FEED -->
 <div id="feedSection">
 <input id="text" placeholder="Write post">
 <input type="file" id="imageInput">
@@ -73,12 +75,15 @@ button {
 <div id="feed"></div>
 </div>
 
+<!-- PROFILE -->
 <div id="profileSection" style="display:none;">
 <h2 id="profileName"></h2>
 <p id="postCount"></p>
+<p id="followerCount"></p>
 <div id="profilePosts"></div>
 </div>
 
+<!-- NOTIFICATION -->
 <div id="notificationSection" style="display:none;">
 <h2>🔔 Notifications</h2>
 <div id="notifications"></div>
@@ -89,7 +94,7 @@ button {
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app = initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
@@ -98,121 +103,144 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 
-let user = "";
+let user="";
 
 // LOGIN
-window.login=()=>{
+window.login = async ()=>{
  user=document.getElementById("username").value.trim();
  if(!user) return alert("Enter name");
 
- document.getElementById("app").style.display="block";
+ await setDoc(doc(db,"users",user),{
+  followers:[],
+  following:[]
+ },{merge:true});
+
  document.getElementById("loginPage").style.display="none";
+ document.getElementById("app").style.display="block";
 
  load();
 };
 
 // NAV
 window.showFeed=()=>{
- document.getElementById("feedSection").style.display="block";
- document.getElementById("profileSection").style.display="none";
- document.getElementById("notificationSection").style.display="none";
+ feedSection.style.display="block";
+ profileSection.style.display="none";
+ notificationSection.style.display="none";
 };
 
 window.showProfile=()=>{
- document.getElementById("feedSection").style.display="none";
- document.getElementById("profileSection").style.display="block";
- document.getElementById("notificationSection").style.display="none";
+ feedSection.style.display="none";
+ profileSection.style.display="block";
+ notificationSection.style.display="none";
  loadProfile();
 };
 
 window.showNotifications=()=>{
- document.getElementById("feedSection").style.display="none";
- document.getElementById("profileSection").style.display="none";
- document.getElementById("notificationSection").style.display="block";
+ feedSection.style.display="none";
+ profileSection.style.display="none";
+ notificationSection.style.display="block";
  loadNotifications();
 };
 
 // POST
-window.post = async () => {
- let text = document.getElementById("text").value.trim();
- let file = document.getElementById("imageInput").files[0];
+window.post=async()=>{
+ let text=textInput.value.trim();
+ let file=imageInput.files[0];
 
  if(!text && !file) return;
 
  if(file){
-   let reader = new FileReader();
-
-   reader.onloadend = async () => {
-     await addDoc(collection(db,"posts"),{
-       user,
-       text,
-       image:reader.result,
-       comments:[],
-       likes:0
-     });
-     load();
-   };
-
-   reader.readAsDataURL(file);
-
- } else {
+  let reader=new FileReader();
+  reader.onloadend=async()=>{
    await addDoc(collection(db,"posts"),{
-     user,
-     text,
-     image:"",
-     comments:[],
-     likes:0
+    user,text,image:reader.result,comments:[],likes:0
    });
-   load();
+   reset();
+  };
+  reader.readAsDataURL(file);
+ }else{
+  await addDoc(collection(db,"posts"),{
+   user,text,image:"",comments:[],likes:0
+  });
+  reset();
  }
 };
 
-// ❤️ LIKE
-window.likePost = async(id,likes,owner)=>{
+function reset(){
+ textInput.value="";
+ imageInput.value="";
+ load();
+}
+
+// LIKE
+window.likePost=async(id,likes,owner)=>{
  await updateDoc(doc(db,"posts",id),{
-  likes: (likes || 0) + 1
+  likes:(likes||0)+1
  });
 
- // 🔔 Notification
- if(owner !== user){
-   await addDoc(collection(db,"notifications"),{
-     text: user + " liked your post",
-     to: owner
-   });
+ if(owner!==user){
+  await addDoc(collection(db,"notifications"),{
+   text:user+" liked your post",
+   to:owner
+  });
  }
 
  load();
 };
 
-// 💬 COMMENT
-window.addComment = async(id,owner)=>{
+// COMMENT
+window.addComment=async(id,owner)=>{
  let input=document.getElementById("c-"+id);
- let text=input.value.trim();
- if(!text) return;
+ let txt=input.value.trim();
+ if(!txt) return;
 
  let snap=await getDocs(collection(db,"posts"));
  let comments=[];
 
  snap.forEach(d=>{
-  if(d.id===id){
-    comments=d.data().comments || [];
-  }
+  if(d.id===id) comments=d.data().comments||[];
  });
 
- comments.push(user+": "+text);
+ comments.push(user+": "+txt);
 
  await updateDoc(doc(db,"posts",id),{comments});
 
- // 🔔 Notification
- if(owner !== user){
-   await addDoc(collection(db,"notifications"),{
-     text: user + " commented: " + text,
-     to: owner
-   });
+ if(owner!==user){
+  await addDoc(collection(db,"notifications"),{
+   text:user+" commented: "+txt,
+   to:owner
+  });
  }
 
  input.value="";
  load();
+};
+
+// FOLLOW
+window.followUser=async(target)=>{
+ if(target===user) return;
+
+ let myRef=doc(db,"users",user);
+ let tRef=doc(db,"users",target);
+
+ let my=(await getDoc(myRef)).data();
+ let t=(await getDoc(tRef)).data();
+
+ let following=my.following||[];
+ let followers=t.followers||[];
+
+ if(following.includes(target)){
+  following=following.filter(u=>u!==target);
+  followers=followers.filter(u=>u!==user);
+ }else{
+  following.push(target);
+  followers.push(user);
+ }
+
+ await updateDoc(myRef,{following});
+ await updateDoc(tRef,{followers});
+
+ alert("Follow updated");
 };
 
 // LOAD
@@ -227,82 +255,65 @@ async function load(){
   html+=`
   <div class="card">
     <b>${p.user}</b>
+    ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
+
     <p>${p.text}</p>
 
-    ${p.image && p.image.startsWith("data:image")
-      ? `<img src="${p.image}" style="width:100%;border-radius:10px;">`
-      : ""}
+    ${p.image&&p.image.startsWith("data:image")?
+    `<img src="${p.image}" style="width:100%">`:""}
 
-    ❤️ ${p.likes || 0}
+    ❤️ ${p.likes||0}
     <button onclick="likePost('${id}',${p.likes||0},'${p.user}')">Like</button>
 
-    ${(p.comments||[]).map(c=>`
-      <div style="background:#0f2f0f;padding:8px;border-radius:10px;margin-top:5px;">
-        ${c}
-      </div>
-    `).join("")}
+    ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
 
-    <input id="c-${id}" placeholder="Write comment...">
+    <input id="c-${id}">
     <button onclick="addComment('${id}','${p.user}')">Send</button>
-  </div>
-  `;
+  </div>`;
  });
 
- document.getElementById("feed").innerHTML=html;
+ feed.innerHTML=html;
 }
 
 // PROFILE
 async function loadProfile(){
  let snap=await getDocs(collection(db,"posts"));
+ let u=await getDoc(doc(db,"users",user));
 
- let count=0;
+ let followers=u.data().followers||[];
+
+ profileName.innerText=user;
+ followerCount.innerText="Followers: "+followers.length;
+
  let html="";
+ let count=0;
 
  snap.forEach(d=>{
   let p=d.data();
-
   if(p.user===user){
-    count++;
-
-    html+=`
-    <div class="card">
-      <p>${p.text}</p>
-      ❤️ ${p.likes || 0}
-      ${p.image ? `<img src="${p.image}" style="width:100%;border-radius:10px;">` : ""}
-    </div>
-    `;
+   count++;
+   html+=`<div class="card">${p.text}</div>`;
   }
  });
 
- document.getElementById("profileName").innerText=user;
- document.getElementById("postCount").innerText="Posts: "+count;
- document.getElementById("profilePosts").innerHTML=html;
+ postCount.innerText="Posts: "+count;
+ profilePosts.innerHTML=html;
 }
 
-// 🔔 LOAD NOTIFICATIONS
+// NOTIFICATIONS
 async function loadNotifications(){
  let snap=await getDocs(collection(db,"notifications"));
  let html="";
 
  snap.forEach(d=>{
   let n=d.data();
-
-  if(n.to === user){
-    html+=`<div class="card">${n.text}</div>`;
+  if(n.to===user){
+   html+=`<div class="card">${n.text}</div>`;
   }
  });
 
- document.getElementById("notifications").innerHTML=html || "No notifications";
+ notifications.innerHTML=html||"No notifications";
 }
-
-// KEYBOARD FIX
-document.addEventListener("focusin",(e)=>{
- if(e.target.tagName==="INPUT"){
-  setTimeout(()=>{
-    e.target.scrollIntoView({behavior:"smooth",block:"center"});
-  },300);
- }
-});
 
 </script>
 
