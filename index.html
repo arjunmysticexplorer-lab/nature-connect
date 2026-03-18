@@ -60,7 +60,6 @@
 
 <h1>🌍 Nature Connect</h1>
 
-<!-- LOGIN -->
 <div class="container" id="loginPage">
 <h2>Login</h2>
 <input id="username" placeholder="Enter your name" />
@@ -68,7 +67,6 @@
 <button onclick="login()">Enter</button>
 </div>
 
-<!-- APP -->
 <div class="container" id="appPage" style="display:none;">
 
 <h2 id="welcome"></h2>
@@ -114,7 +112,6 @@ function logout(){
  location.reload()
 }
 
-// GLOBAL POSTS
 function getPosts(){
  return JSON.parse(localStorage.getItem("global_posts")) || []
 }
@@ -134,34 +131,22 @@ function post(){
 
  let posts = getPosts()
 
+ let imageURL = null
+
+ // 🔥 MOBILE SAFE IMAGE
  if(file){
-   let reader = new FileReader()
-
-   reader.onload = function(e){
-     let postData = {
-       user: currentUser,
-       text: text,
-       image: e.target.result
-     }
-
-     posts.unshift(postData)
-     savePosts(posts)
-     render(posts)
-   }
-
-   reader.readAsDataURL(file)
-
- } else {
-   let postData = {
-     user: currentUser,
-     text: text,
-     image: null
-   }
-
-   posts.unshift(postData)
-   savePosts(posts)
-   render(posts)
+   imageURL = URL.createObjectURL(file)
  }
+
+ let postData = {
+   user: currentUser,
+   text: text,
+   image: imageURL
+ }
+
+ posts.unshift(postData)
+ savePosts(posts)
+ render(posts)
 
  document.getElementById("text").value = ""
  document.getElementById("imageInput").value = ""
@@ -188,7 +173,6 @@ function showApp(){
  render(getPosts())
 }
 
-// 🤖 AI वापस add
 function aiReply(){
  let input = document.getElementById("aiInput").value.toLowerCase()
  let reply = ""
@@ -199,11 +183,8 @@ function aiReply(){
  else if(input.includes("nature")){
   reply = "Nature is peace 🌄"
  }
- else if(input.includes("help")){
-  reply = "You can post text and images 📸"
- }
  else{
-  reply = "I am your AI assistant 🤖"
+  reply = "I am your AI 🤖"
  }
 
  document.getElementById("aiOutput").innerText = reply
