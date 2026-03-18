@@ -50,7 +50,7 @@ img {
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
@@ -89,7 +89,7 @@ function showApp(){
   load();
 }
 
-// 🔥 FINAL FIXED POST FUNCTION
+// POST
 window.post = async function(){
 
   let text = document.getElementById("text").value.trim();
@@ -107,9 +107,7 @@ window.post = async function(){
       let img = new Image();
       let reader = new FileReader();
 
-      reader.onload = function(e){
-        img.src = e.target.result;
-      };
+      reader.onload = e => img.src = e.target.result;
 
       img.onload = function(){
         let canvas = document.createElement("canvas");
@@ -133,7 +131,8 @@ window.post = async function(){
   await addDoc(collection(db, "posts"), {
     user,
     text,
-    image
+    image,
+    likes: 0
   });
 
   document.getElementById("text").value = "";
@@ -142,16 +141,32 @@ window.post = async function(){
   load();
 }
 
+// LIKE FUNCTION
+window.likePost = async function(id, currentLikes){
+  const postRef = doc(db, "posts", id);
+  await updateDoc(postRef, {
+    likes: currentLikes + 1
+  });
+  load();
+}
+
+// LOAD POSTS
 async function load(){
   let snapshot = await getDocs(collection(db, "posts"));
   let html = "";
 
-  snapshot.forEach(doc=>{
-    let p = doc.data();
+  snapshot.forEach(docSnap=>{
+    let p = docSnap.data();
+    let id = docSnap.id;
+
     html += "<div class='card'>";
     html += "<b>"+p.user+"</b>";
     if(p.text) html += "<p>"+p.text+"</p>";
     if(p.image) html += "<img src='"+p.image+"'>";
+
+    html += "<p>❤️ "+(p.likes || 0)+"</p>";
+    html += "<button onclick=\"likePost('"+id+"', "+(p.likes || 0)+")\">Like</button>";
+
     html += "</div>";
   });
 
