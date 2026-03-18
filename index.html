@@ -4,51 +4,18 @@
 <title>Nature Connect</title>
 
 <style>
-body {
-  font-family: Arial;
-  background: #0b1d0b;
-  color: white;
-  margin: 0;
-}
-
-.topbar {
-  display:flex;
-  justify-content:space-between;
-  background:#0f2f0f;
-  padding:10px;
-}
-
-input {
-  width:85%;
-  padding:10px;
-  margin:5px;
-  border-radius:20px;
-  border:none;
-  background:#0f2f0f;
-  color:white;
-}
-
-button {
-  padding:8px;
-  border-radius:20px;
-  border:none;
-  background:#00c853;
-  color:white;
-}
-
-.card {
-  background:#1a2e1a;
-  margin:10px;
-  padding:10px;
-  border-radius:10px;
-}
+body {margin:0;background:#071a07;color:white;font-family:sans-serif;}
+.top {display:flex;justify-content:space-between;background:#0c2b0c;padding:10px;}
+input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
+button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
+.card{background:#1b3b1b;margin:10px;padding:10px;border-radius:10px;}
 </style>
 </head>
 
 <body>
 
-<div class="topbar">
-<h3>🌍 Nature Connect</h3>
+<div class="top">
+<b>🌍 Nature Connect</b>
 <div>
 <button onclick="showFeed()">🏠</button>
 <button onclick="showProfile()">👤</button>
@@ -56,38 +23,37 @@ button {
 </div>
 </div>
 
-<div id="loginPage">
-<input id="username" placeholder="Enter name">
+<div id="loginBox">
+<input id="name" placeholder="Enter name">
 <button onclick="login()">Login</button>
 </div>
 
-<div id="app" style="display:none;">
+<div id="main" style="display:none">
 
-<div id="feedSection">
-<input id="text" placeholder="Write post">
-<input type="file" id="imageInput">
-<button onclick="post()">Post</button>
-<div id="feed"></div>
+<div id="feed">
+<input id="postText" placeholder="Write post">
+<input type="file" id="file">
+<button onclick="addPost()">Post</button>
+<div id="posts"></div>
 </div>
 
-<div id="profileSection" style="display:none;">
-<h2 id="profileName"></h2>
-<p id="postCount"></p>
-<p id="followerCount"></p>
-<div id="profilePosts"></div>
+<div id="profile" style="display:none">
+<h2 id="pname"></h2>
+<p id="pcount"></p>
+<p id="followers"></p>
 </div>
 
-<div id="notificationSection" style="display:none;">
-<h2>🔔 Notifications</h2>
-<div id="notifications"></div>
+<div id="notify" style="display:none">
+<h2>Notifications</h2>
+<div id="note"></div>
 </div>
 
 </div>
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import {getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app = initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
@@ -98,78 +64,80 @@ const db = getFirestore(app);
 
 let user="";
 
-// LOGIN
 window.login = async ()=>{
- user=document.getElementById("username").value.trim();
+ user=document.getElementById("name").value.trim();
  if(!user) return alert("Enter name");
 
- await setDoc(doc(db,"users",user),{
-  followers:[],
-  following:[]
- },{merge:true});
+ await setDoc(doc(db,"users",user),{followers:[]},{merge:true});
 
- loginPage.style.display="none";
- app.style.display="block";
+ loginBox.style.display="none";
+ main.style.display="block";
 
  load();
 };
 
-// NAV
 window.showFeed=()=>{
- feedSection.style.display="block";
- profileSection.style.display="none";
- notificationSection.style.display="none";
+ feed.style.display="block";
+ profile.style.display="none";
+ notify.style.display="none";
 };
 
-window.showProfile=()=>{
- feedSection.style.display="none";
- profileSection.style.display="block";
- notificationSection.style.display="none";
- loadProfile();
+window.showProfile=async ()=>{
+ feed.style.display="none";
+ profile.style.display="block";
+ notify.style.display="none";
+
+ pname.innerText=user;
+
+ let snap=await getDocs(collection(db,"posts"));
+ let count=0;
+ snap.forEach(d=>{
+  if(d.data().user===user) count++;
+ });
+
+ pcount.innerText="Posts: "+count;
+
+ let u=await getDoc(doc(db,"users",user));
+ followers.innerText="Followers: "+(u.data()?.followers?.length||0);
 };
 
-window.showNotifications=()=>{
- feedSection.style.display="none";
- profileSection.style.display="none";
- notificationSection.style.display="block";
- loadNotifications();
+window.showNotifications=async ()=>{
+ feed.style.display="none";
+ profile.style.display="none";
+ notify.style.display="block";
+
+ let snap=await getDocs(collection(db,"notifications"));
+ let html="";
+ snap.forEach(d=>{
+  let n=d.data();
+  if(n.to===user) html+=`<div class="card">${n.text}</div>`;
+ });
+ note.innerHTML=html;
 };
 
-// POST
-window.post=async()=>{
- let text=textInput.value.trim();
- let file=imageInput.files[0];
-
- if(!text && !file) return;
+window.addPost=async ()=>{
+ let text=document.getElementById("postText").value;
+ let file=document.getElementById("file").files[0];
 
  if(file){
   let reader=new FileReader();
-  reader.onloadend=async()=>{
+  reader.onload=async ()=>{
    await addDoc(collection(db,"posts"),{
-    user,text,image:reader.result,comments:[],likes:0
+    user,text,image:reader.result,likes:0,comments:[]
    });
-   reset();
+   load();
   };
   reader.readAsDataURL(file);
  }else{
   await addDoc(collection(db,"posts"),{
-   user,text,image:"",comments:[],likes:0
+   user,text,image:"",likes:0,comments:[]
   });
-  reset();
+  load();
  }
 };
 
-function reset(){
- textInput.value="";
- imageInput.value="";
- load();
-}
-
-// LIKE
-window.likePost=async(id,likes,owner)=>{
- await updateDoc(doc(db,"posts",id),{
-  likes:(likes||0)+1
- });
+window.like=async(id,l,owner)=>{
+ await updateDoc(doc(db,"posts",id),{likes:l+1});
 
  if(owner!==user){
   await addDoc(collection(db,"notifications"),{
@@ -181,136 +149,27 @@ window.likePost=async(id,likes,owner)=>{
  load();
 };
 
-// COMMENT
-window.addComment=async(id,owner)=>{
- let input=document.getElementById("c-"+id);
- let txt=input.value.trim();
- if(!txt) return;
-
- let snap=await getDocs(collection(db,"posts"));
- let comments=[];
-
- snap.forEach(d=>{
-  if(d.id===id) comments=d.data().comments||[];
- });
-
- comments.push(user+": "+txt);
-
- await updateDoc(doc(db,"posts",id),{comments});
-
- if(owner!==user){
-  await addDoc(collection(db,"notifications"),{
-   text:user+" commented: "+txt,
-   to:owner
-  });
- }
-
- input.value="";
- load();
-};
-
-// FOLLOW
-window.followUser=async(target)=>{
- if(target===user) return;
-
- let myRef=doc(db,"users",user);
- let tRef=doc(db,"users",target);
-
- let my=(await getDoc(myRef)).data();
- let t=(await getDoc(tRef)).data();
-
- let following=my.following||[];
- let followers=t.followers||[];
-
- if(following.includes(target)){
-  following=following.filter(u=>u!==target);
-  followers=followers.filter(u=>u!==user);
- }else{
-  following.push(target);
-  followers.push(user);
- }
-
- await updateDoc(myRef,{following});
- await updateDoc(tRef,{followers});
-
- loadProfile(); // 🔥 FIX
-};
-
-// LOAD FEED
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
 
  snap.forEach(d=>{
   let p=d.data();
-  let id=d.id;
 
   html+=`
   <div class="card">
-    <b>${p.user}</b>
-    ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
+  <b>${p.user}</b>
+  <p>${p.text}</p>
 
-    <p>${p.text}</p>
+  ${p.image?`<img src="${p.image}" width="100%">`:""}
 
-    ${p.image&&p.image.startsWith("data:image")?
-    `<img src="${p.image}" style="width:100%">`:""}
-
-    ❤️ ${p.likes||0}
-    <button onclick="likePost('${id}',${p.likes||0},'${p.user}')">Like</button>
-
-    ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
-
-    <input id="c-${id}">
-    <button onclick="addComment('${id}','${p.user}')">Send</button>
-  </div>`;
+  ❤️ ${p.likes}
+  <button onclick="like('${d.id}',${p.likes},'${p.user}')">Like</button>
+  </div>
+  `;
  });
 
- feed.innerHTML=html;
-}
-
-// PROFILE FIXED
-async function loadProfile(){
-
- let userRef = doc(db,"users",user);
- let userSnap = await getDoc(userRef);
-
- let followers = [];
- if(userSnap.exists()){
-   followers = userSnap.data().followers || [];
- }
-
- profileName.innerText = user;
- followerCount.innerText = "Followers: " + followers.length;
-
- let snap = await getDocs(collection(db,"posts"));
- let html="";
- let count=0;
-
- snap.forEach(d=>{
-   let p=d.data();
-   if(p.user===user){
-     count++;
-     html+=`<div class="card">${p.text}</div>`;
-   }
- });
-
- postCount.innerText="Posts: "+count;
- profilePosts.innerHTML=html;
-}
-
-// NOTIFICATIONS
-async function loadNotifications(){
- let snap=await getDocs(collection(db,"notifications"));
- let html="";
-
- snap.forEach(d=>{
-  let n=d.data();
-  if(n.to===user){
-   html+=`<div class="card">${n.text}</div>`;
-  }
- });
-
- notifications.innerHTML=html||"No notifications";
+ document.getElementById("posts").innerHTML=html;
 }
 
 </script>
