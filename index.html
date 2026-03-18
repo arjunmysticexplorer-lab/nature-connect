@@ -4,25 +4,24 @@
 <title>Nature Connect</title>
 
 <style>
- body {
-   font-family: Arial;
-   background: linear-gradient(to bottom, #0b1d0b, #1f3d1f);
-   color: white;
-   text-align: center;
- }
- input, button {
-   padding: 10px;
-   margin: 5px;
- }
- .card {
-   background: #1a2e1a;
-   margin: 10px;
-   padding: 10px;
-   border-radius: 10px;
- }
- img {
-   width: 100%;
- }
+body {
+  font-family: Arial;
+  background: #0b1d0b;
+  color: white;
+  text-align: center;
+}
+input, button {
+  padding: 10px;
+  margin: 5px;
+}
+.card {
+  background: #1a2e1a;
+  margin: 10px;
+  padding: 10px;
+}
+img {
+  width: 100%;
+}
 </style>
 
 </head>
@@ -32,23 +31,22 @@
 <h1>🌍 Nature Connect</h1>
 
 <div id="loginPage">
-<input id="username" placeholder="Enter name"/>
+<input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
 </div>
 
 <div id="appPage" style="display:none;">
 <h2 id="welcome"></h2>
 
-<input id="text" placeholder="Write something"/>
-<input type="file" id="imageInput"/>
+<input id="text" placeholder="Write something">
+<input type="file" id="imageInput">
 <br>
 <button onclick="post()">Post</button>
+<button onclick="logout()">Logout</button>
 
 <div id="feed"></div>
-
 </div>
 
-<!-- 🔥 SINGLE SCRIPT (ALL IN ONE) -->
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
@@ -67,72 +65,82 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // USER
-let user = localStorage.getItem("user") || ""
+let user = localStorage.getItem("user") || "";
 
 if(user){
- showApp()
+  showApp();
 }
 
 // LOGIN
 window.login = function(){
- user = document.getElementById("username").value
- localStorage.setItem("user", user)
- showApp()
+  user = document.getElementById("username").value.trim();
+  if(!user) return alert("Enter name");
+  localStorage.setItem("user", user);
+  showApp();
+}
+
+// LOGOUT
+window.logout = function(){
+  localStorage.removeItem("user");
+  location.reload();
 }
 
 // SHOW APP
 function showApp(){
- document.getElementById("loginPage").style.display="none"
- document.getElementById("appPage").style.display="block"
- document.getElementById("welcome").innerText="Welcome "+user
- load()
+  document.getElementById("loginPage").style.display = "none";
+  document.getElementById("appPage").style.display = "block";
+  document.getElementById("welcome").innerText = "Welcome " + user;
+  load();
 }
 
 // POST
 window.post = async function(){
- let text = document.getElementById("text").value
- let file = document.getElementById("imageInput").files[0]
 
- if(!text && !file){
-   alert("Write something or select image")
-   return
- }
+  let text = document.getElementById("text").value.trim();
+  let file = document.getElementById("imageInput").files[0];
 
- let image = null
+  if(!text && !file){
+    alert("Write something or select image");
+    return;
+  }
 
- if(file){
-   image = await new Promise((resolve)=>{
-     let reader = new FileReader()
-     reader.onload = (e)=> resolve(e.target.result)
-     reader.readAsDataURL(file)
-   })
- }
+  let image = null;
 
- await addDoc(collection(db, "posts"), {
-   user, text, image
- })
+  if(file){
+    image = await new Promise(resolve=>{
+      let reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+  }
 
- load()
+  await addDoc(collection(db, "posts"), {
+    user,
+    text,
+    image
+  });
 
- document.getElementById("text").value=""
- document.getElementById("imageInput").value=""
+  document.getElementById("text").value = "";
+  document.getElementById("imageInput").value = "";
+
+  load();
 }
 
 // LOAD POSTS
 async function load(){
- let snapshot = await getDocs(collection(db, "posts"))
- let html = ""
+  let snapshot = await getDocs(collection(db, "posts"));
+  let html = "";
 
- snapshot.forEach(doc=>{
-   let p = doc.data()
-   html += "<div class='card'>"
-   html += "<b>"+p.user+"</b>"
-   if(p.text) html += "<p>"+p.text+"</p>"
-   if(p.image) html += "<img src='"+p.image+"'/>"
-   html += "</div>"
- })
+  snapshot.forEach(doc=>{
+    let p = doc.data();
+    html += "<div class='card'>";
+    html += "<b>"+p.user+"</b>";
+    if(p.text) html += "<p>"+p.text+"</p>";
+    if(p.image) html += "<img src='"+p.image+"'>";
+    html += "</div>";
+  });
 
- document.getElementById("feed").innerHTML = html
+  document.getElementById("feed").innerHTML = html;
 }
 
 </script>
