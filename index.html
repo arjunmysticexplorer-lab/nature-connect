@@ -6,50 +6,18 @@
 <style>
  body {
    font-family: Arial;
-   background: linear-gradient(to bottom, #0b1d0b, #1f3d1f);
+   background: #0b1d0b;
    color: white;
-   margin: 0;
    text-align: center;
  }
 
- h1 {
-   background: black;
-   padding: 15px;
-   margin: 0;
- }
-
- .container {
-   padding: 20px;
- }
-
- input {
+ input, button {
    padding: 10px;
-   width: 80%;
    margin: 5px;
-   border-radius: 10px;
-   border: none;
- }
-
- button {
-   padding: 10px 20px;
-   margin: 10px;
-   border: none;
-   border-radius: 20px;
-   background: green;
-   color: white;
-   font-weight: bold;
- }
-
- .card {
-   background: #1a2e1a;
-   padding: 15px;
-   margin: 10px;
-   border-radius: 15px;
  }
 
  img {
    width: 100%;
-   border-radius: 10px;
    margin-top: 10px;
  }
 </style>
@@ -58,31 +26,27 @@
 
 <body>
 
-<h1>🌍 Nature Connect</h1>
+<h1>Nature Connect</h1>
 
-<div class="container" id="loginPage">
-
-<h2>Login</h2>
-<input id="username" placeholder="Enter your name" />
-<br>
-<button onclick="login()">Enter</button>
-
+<!-- LOGIN -->
+<div id="loginPage">
+<input id="username" placeholder="Enter name" />
+<button onclick="login()">Login</button>
 </div>
 
-<div class="container" id="appPage" style="display:none;">
+<!-- APP -->
+<div id="appPage" style="display:none;">
 
-<h2 id="welcome"></h2>
+<h3 id="welcome"></h3>
 
-<input id="text" placeholder="Share your moment..." />
+<input id="text" placeholder="Say something..." />
 <br>
 
 <input type="file" id="imageInput" accept="image/*" />
 <br>
 
 <button onclick="post()">Post</button>
-<button onclick="logout()">Logout</button>
 
-<h2>Feed</h2>
 <div id="feed"></div>
 
 </div>
@@ -96,7 +60,7 @@ if(currentUser){
 }
 
 function login(){
- let name = document.getElementById("username").value.trim()
+ let name = document.getElementById("username").value
  if(name){
   currentUser = name
   localStorage.setItem("user", name)
@@ -104,9 +68,11 @@ function login(){
  }
 }
 
-function logout(){
- localStorage.removeItem("user")
- location.reload()
+function showApp(){
+ document.getElementById("loginPage").style.display = "none"
+ document.getElementById("appPage").style.display = "block"
+ document.getElementById("welcome").innerText = "Welcome " + currentUser
+ loadPosts()
 }
 
 function getPosts(){
@@ -118,69 +84,56 @@ function savePosts(posts){
 }
 
 function post(){
- let text = document.getElementById("text").value.trim()
- let fileInput = document.getElementById("imageInput")
- let file = fileInput.files[0]
+ let text = document.getElementById("text").value
+ let file = document.getElementById("imageInput").files[0]
 
- if(!text && !file){
-   alert("Write something or select image")
-   return
- }
+ alert("Post button clicked") // DEBUG
 
  let posts = getPosts()
 
- // 🔥 SIMPLE FIX: image + text both handle clean
  if(file){
    let reader = new FileReader()
 
    reader.onload = function(e){
-     let postData = {
+     alert("Image loaded") // DEBUG
+
+     let post = {
        text: text,
        image: e.target.result
      }
 
-     posts.unshift(postData)
+     posts.unshift(post)
      savePosts(posts)
-     render(posts)
+     loadPosts()
    }
 
    reader.readAsDataURL(file)
 
  } else {
-   let postData = {
+   let post = {
      text: text,
      image: null
    }
 
-   posts.unshift(postData)
+   posts.unshift(post)
    savePosts(posts)
-   render(posts)
+   loadPosts()
  }
 
- document.getElementById("text").value = ""
- fileInput.value = ""
 }
 
-function render(posts){
+function loadPosts(){
+ let posts = getPosts()
  let html = ""
 
  posts.forEach(p=>{
-   html += "<div class='card'>"
+   html += "<div>"
    if(p.text) html += "<p>" + p.text + "</p>"
-   if(p.image) html += "<img src='" + p.image + "'/>"
-   html += "</div>"
+   if(p.image) html += "<img src='"+p.image+"'/>"
+   html += "</div><hr>"
  })
 
  document.getElementById("feed").innerHTML = html
-}
-
-function showApp(){
- document.getElementById("loginPage").style.display = "none"
- document.getElementById("appPage").style.display = "block"
- document.getElementById("welcome").innerText = "Welcome " + currentUser
-
- let posts = getPosts()
- render(posts)
 }
 
 </script>
