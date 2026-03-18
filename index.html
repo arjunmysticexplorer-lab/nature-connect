@@ -133,21 +133,32 @@ function post(){
    return
  }
 
- // 🔥 FIXED IMAGE METHOD (mobile safe)
- let imageURL = null
-
  if(file){
-   imageURL = URL.createObjectURL(file)
- }
+   let reader = new FileReader()
 
- let postData = {
-   text: text,
-   image: imageURL
- }
+   reader.onload = function(e){
+     let postData = {
+       text: text,
+       image: e.target.result   // 🔥 Base64 save
+     }
 
- posts.unshift(postData)
- savePosts(posts)
- loadPosts()
+     posts.unshift(postData)
+     savePosts(posts)
+     loadPosts()
+   }
+
+   reader.readAsDataURL(file)
+
+ } else {
+   let postData = {
+     text: text,
+     image: null
+   }
+
+   posts.unshift(postData)
+   savePosts(posts)
+   loadPosts()
+ }
 
  document.getElementById("text").value = ""
  document.getElementById("imageInput").value = ""
