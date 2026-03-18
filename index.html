@@ -60,7 +60,6 @@
 
 <h1>🌍 Nature Connect</h1>
 
-<!-- LOGIN -->
 <div class="container" id="loginPage">
 <h2>Login</h2>
 <input id="username" placeholder="Enter your name" />
@@ -68,7 +67,6 @@
 <button onclick="login()">Enter</button>
 </div>
 
-<!-- APP -->
 <div class="container" id="appPage" style="display:none;">
 
 <h2 id="welcome"></h2>
@@ -84,11 +82,6 @@
 
 <h2>🌍 Global Feed</h2>
 <div id="feed"></div>
-
-<h2>AI Assistant 🤖</h2>
-<input id="aiInput" placeholder="Ask something..." />
-<button onclick="aiReply()">Ask AI</button>
-<p id="aiOutput"></p>
 
 </div>
 
@@ -114,12 +107,12 @@ function logout(){
  location.reload()
 }
 
-// 🌍 GLOBAL STORAGE
-function getGlobalPosts(){
+// GLOBAL POSTS
+function getPosts(){
  return JSON.parse(localStorage.getItem("global_posts")) || []
 }
 
-function saveGlobalPosts(posts){
+function savePosts(posts){
  localStorage.setItem("global_posts", JSON.stringify(posts))
 }
 
@@ -132,7 +125,7 @@ function post(){
    return
  }
 
- let posts = getGlobalPosts()
+ let posts = getPosts()
 
  if(file){
    let reader = new FileReader()
@@ -145,8 +138,12 @@ function post(){
      }
 
      posts.unshift(postData)
-     saveGlobalPosts(posts)
-     loadPosts()
+     savePosts(posts)
+     render(posts)
+   }
+
+   reader.onerror = function(){
+     alert("Image load failed ❌")
    }
 
    reader.readAsDataURL(file)
@@ -159,16 +156,15 @@ function post(){
    }
 
    posts.unshift(postData)
-   saveGlobalPosts(posts)
-   loadPosts()
+   savePosts(posts)
+   render(posts)
  }
 
  document.getElementById("text").value = ""
  document.getElementById("imageInput").value = ""
 }
 
-function loadPosts(){
- let posts = getGlobalPosts()
+function render(posts){
  let html = ""
 
  posts.forEach(p=>{
@@ -186,24 +182,7 @@ function showApp(){
  document.getElementById("loginPage").style.display = "none"
  document.getElementById("appPage").style.display = "block"
  document.getElementById("welcome").innerText = "Welcome " + currentUser
- loadPosts()
-}
-
-function aiReply(){
- let input = document.getElementById("aiInput").value.toLowerCase()
- let reply = ""
-
- if(input.includes("hello")){
-  reply = "Hello! Welcome 🌿"
- }
- else if(input.includes("nature")){
-  reply = "Nature is peace 🌄"
- }
- else{
-  reply = "Ask about nature 🙂"
- }
-
- document.getElementById("aiOutput").innerText = reply
+ render(getPosts())
 }
 
 </script>
