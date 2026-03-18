@@ -39,7 +39,7 @@ img {
 <h2 id="welcome"></h2>
 
 <input id="text" placeholder="Write something">
-<input type="file" id="imageInput">
+<input type="file" id="imageInput" accept="image/*">
 <br>
 <button onclick="post()">Post</button>
 <button onclick="logout()">Logout</button>
@@ -64,14 +64,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// USER
 let user = localStorage.getItem("user") || "";
 
 if(user){
   showApp();
 }
 
-// LOGIN
 window.login = function(){
   user = document.getElementById("username").value.trim();
   if(!user) return alert("Enter name");
@@ -79,13 +77,11 @@ window.login = function(){
   showApp();
 }
 
-// LOGOUT
 window.logout = function(){
   localStorage.removeItem("user");
   location.reload();
 }
 
-// SHOW APP
 function showApp(){
   document.getElementById("loginPage").style.display = "none";
   document.getElementById("appPage").style.display = "block";
@@ -93,7 +89,7 @@ function showApp(){
   load();
 }
 
-// POST
+// 🔥 FINAL FIXED POST FUNCTION
 window.post = async function(){
 
   let text = document.getElementById("text").value.trim();
@@ -108,8 +104,28 @@ window.post = async function(){
 
   if(file){
     image = await new Promise(resolve=>{
+      let img = new Image();
       let reader = new FileReader();
-      reader.onload = e => resolve(e.target.result);
+
+      reader.onload = function(e){
+        img.src = e.target.result;
+      };
+
+      img.onload = function(){
+        let canvas = document.createElement("canvas");
+        let ctx = canvas.getContext("2d");
+
+        let maxWidth = 600;
+        let scale = maxWidth / img.width;
+
+        canvas.width = maxWidth;
+        canvas.height = img.height * scale;
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      };
+
       reader.readAsDataURL(file);
     });
   }
@@ -126,7 +142,6 @@ window.post = async function(){
   load();
 }
 
-// LOAD POSTS
 async function load(){
   let snapshot = await getDocs(collection(db, "posts"));
   let html = "";
