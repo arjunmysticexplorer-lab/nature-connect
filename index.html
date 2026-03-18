@@ -11,69 +11,50 @@ body {
   margin: 0;
 }
 
-/* HEADER */
 h1 {
   background: #0f2f0f;
   padding: 15px;
   margin: 0;
-  font-size: 22px;
-  border-bottom: 1px solid #1f3d1f;
 }
 
-/* INPUTS */
 input {
   width: 90%;
   padding: 12px;
   margin: 8px;
   border-radius: 12px;
   border: none;
-  outline: none;
   background: #1a2e1a;
   color: white;
 }
 
-/* BUTTONS */
 button {
-  padding: 10px 15px;
+  padding: 10px;
   border-radius: 20px;
   border: none;
   background: linear-gradient(45deg, #00c853, #64dd17);
-  color: black;
-  font-weight: bold;
   margin: 5px;
 }
 
-/* CARD */
 .card {
-  background: rgba(26, 46, 26, 0.9);
-  margin: 12px;
-  padding: 15px;
-  border-radius: 16px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  background: #1a2e1a;
+  margin: 10px;
+  padding: 12px;
+  border-radius: 15px;
 }
 
-/* IMAGE */
 img {
   width: 100%;
-  border-radius: 12px;
-  margin-top: 10px;
+  border-radius: 10px;
 }
 
-/* COMMENTS */
-.comment {
-  background: #0f2a0f;
-  padding: 6px;
-  margin: 5px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-/* NAV BUTTONS */
 .nav {
   text-align: center;
-  margin: 10px;
 }
 
+#chatBox {
+  max-height: 300px;
+  overflow-y: scroll;
+}
 </style>
 
 </head>
@@ -83,7 +64,7 @@ img {
 <h1>🌍 Nature Connect</h1>
 
 <div id="loginPage">
-<input id="username" placeholder="Enter your name">
+<input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
 </div>
 
@@ -94,30 +75,32 @@ img {
 <div class="nav">
 <button onclick="showFeed()">🌍 Feed</button>
 <button onclick="showProfile()">👤 Profile</button>
+<button onclick="showChat()">💬 Chat</button>
 <button onclick="logout()">Logout</button>
 </div>
 
+<!-- FEED -->
 <div id="feedSection">
-
 <input id="text" placeholder="Share something...">
 <input type="file" id="imageInput">
-<br>
 <button onclick="post()">Post</button>
-
 <div id="feed"></div>
 </div>
 
+<!-- PROFILE -->
 <div id="profileSection" style="display:none;">
-<h2>👤 My Profile</h2>
-
-<input id="bioInput" placeholder="Write your bio">
+<input id="bioInput" placeholder="Write bio">
 <button onclick="saveBio()">Save</button>
-
 <p id="bioText"></p>
-
-<h3>My Posts</h3>
 <div id="myPosts"></div>
+</div>
 
+<!-- CHAT -->
+<div id="chatSection" style="display:none;">
+<h3>💬 Global Chat</h3>
+<div id="chatBox"></div>
+<input id="chatInput" placeholder="Message">
+<button onclick="sendMessage()">Send</button>
 </div>
 
 <script type="module">
@@ -142,13 +125,12 @@ let user = localStorage.getItem("user") || "";
 if(user) showApp();
 
 window.login = function(){
- user = document.getElementById("username").value.trim();
- if(!user) return alert("Enter name");
- localStorage.setItem("user", user);
+ user=document.getElementById("username").value.trim();
+ localStorage.setItem("user",user);
  showApp();
 }
 
-window.logout = function(){
+window.logout=function(){
  localStorage.removeItem("user");
  location.reload();
 }
@@ -161,23 +143,30 @@ function showApp(){
  loadProfile();
 }
 
-window.showFeed = function(){
+window.showFeed=function(){
  document.getElementById("feedSection").style.display="block";
  document.getElementById("profileSection").style.display="none";
+ document.getElementById("chatSection").style.display="none";
 }
 
-window.showProfile = function(){
+window.showProfile=function(){
  document.getElementById("feedSection").style.display="none";
  document.getElementById("profileSection").style.display="block";
+ document.getElementById("chatSection").style.display="none";
  loadProfile();
 }
 
-window.post = async function(){
+window.showChat=function(){
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("profileSection").style.display="none";
+ document.getElementById("chatSection").style.display="block";
+ loadChat();
+}
 
- let text = document.getElementById("text").value.trim();
- let file = document.getElementById("imageInput").files[0];
-
- if(!text && !file) return alert("Write something");
+// POST
+window.post=async function(){
+ let text=document.getElementById("text").value.trim();
+ let file=document.getElementById("imageInput").files[0];
 
  let image=null;
 
@@ -190,14 +179,13 @@ window.post = async function(){
    img.onload=function(){
     let canvas=document.createElement("canvas");
     let ctx=canvas.getContext("2d");
-
     let w=600;
     let scale=w/img.width;
 
     canvas.width=w;
     canvas.height=img.height*scale;
-
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
     resolve(canvas.toDataURL("image/jpeg",0.7));
    };
 
@@ -210,16 +198,16 @@ window.post = async function(){
  });
 
  document.getElementById("text").value="";
- document.getElementById("imageInput").value="";
-
  load();
 }
 
+// LIKE
 window.likePost=async function(id,likes){
  await updateDoc(doc(db,"posts",id),{likes:likes+1});
  load();
 }
 
+// COMMENT
 window.addComment=async function(id,comments){
  let input=document.getElementById("comment-"+id);
  let text=input.value.trim();
@@ -228,10 +216,10 @@ window.addComment=async function(id,comments){
  comments.push(user+": "+text);
 
  await updateDoc(doc(db,"posts",id),{comments});
- input.value="";
  load();
 }
 
+// LOAD FEED
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -244,10 +232,10 @@ async function load(){
   <b>${p.user}</b>
   ${p.text?`<p>${p.text}</p>`:""}
   ${p.image?`<img src="${p.image}">`:""}
-  <p>❤️ ${p.likes||0}</p>
-  <button onclick="likePost('${id}',${p.likes||0})">Like</button>
-  ${(p.comments||[]).map(c=>`<div class="comment">${c}</div>`).join("")}
-  <input id="comment-${id}" placeholder="Comment">
+  ❤️ ${p.likes}
+  <button onclick="likePost('${id}',${p.likes})">Like</button>
+  ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
+  <input id="comment-${id}">
   <button onclick="addComment('${id}',${JSON.stringify(p.comments||[])})">Send</button>
   </div>`;
  });
@@ -255,6 +243,7 @@ async function load(){
  document.getElementById("feed").innerHTML=html;
 }
 
+// PROFILE
 window.saveBio=async function(){
  let bio=document.getElementById("bioInput").value;
  await setDoc(doc(db,"users",user),{bio});
@@ -266,7 +255,7 @@ async function loadProfile(){
  let snap=await getDoc(ref);
 
  if(snap.exists()){
-  document.getElementById("bioText").innerText="Bio: "+snap.data().bio;
+  document.getElementById("bioText").innerText=snap.data().bio;
  }
 
  let posts=await getDocs(collection(db,"posts"));
@@ -275,14 +264,36 @@ async function loadProfile(){
  posts.forEach(d=>{
   let p=d.data();
   if(p.user===user){
-   html+=`<div class="card">
-   ${p.text?`<p>${p.text}</p>`:""}
-   ${p.image?`<img src="${p.image}">`:""}
-   </div>`;
+   html+=`<div class="card">${p.text||""}${p.image?`<img src="${p.image}">`:""}</div>`;
   }
  });
 
  document.getElementById("myPosts").innerHTML=html;
+}
+
+// CHAT
+window.sendMessage=async function(){
+ let msg=document.getElementById("chatInput").value;
+ if(!msg)return;
+
+ await addDoc(collection(db,"chat"),{
+  user,message:msg
+ });
+
+ document.getElementById("chatInput").value="";
+ loadChat();
+}
+
+async function loadChat(){
+ let snap=await getDocs(collection(db,"chat"));
+ let html="";
+
+ snap.forEach(d=>{
+  let m=d.data();
+  html+=`<div class="card"><b>${m.user}</b>: ${m.message}</div>`;
+ });
+
+ document.getElementById("chatBox").innerHTML=html;
 }
 
 </script>
