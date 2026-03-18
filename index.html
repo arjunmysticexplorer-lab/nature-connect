@@ -60,7 +60,18 @@
 
 <h1>🌍 Nature Connect</h1>
 
-<div class="container">
+<div class="container" id="loginPage">
+
+<h2>Login</h2>
+<input id="username" placeholder="Enter your name" />
+<br>
+<button onclick="login()">Enter</button>
+
+</div>
+
+<div class="container" id="appPage" style="display:none;">
+
+<h2 id="welcome"></h2>
 
 <input id="text" placeholder="Share your moment..." />
 <br>
@@ -69,6 +80,7 @@
 <br>
 
 <button onclick="post()">Post</button>
+<button onclick="logout()">Logout</button>
 
 <h2>Feed</h2>
 <div id="feed"></div>
@@ -82,12 +94,46 @@
 
 <script>
 
-let posts = JSON.parse(localStorage.getItem("posts")) || []
-show()
+let currentUser = localStorage.getItem("user")
+
+if(currentUser){
+ showApp()
+}
+
+function login(){
+ let name = document.getElementById("username").value
+ if(name !== ""){
+  localStorage.setItem("user", name)
+  showApp()
+ }
+}
+
+function logout(){
+ localStorage.removeItem("user")
+ location.reload()
+}
+
+function showApp(){
+ document.getElementById("loginPage").style.display = "none"
+ document.getElementById("appPage").style.display = "block"
+ document.getElementById("welcome").innerText = "Welcome " + currentUser
+
+ loadPosts()
+}
+
+function getPosts(){
+ return JSON.parse(localStorage.getItem(currentUser+"_posts")) || []
+}
+
+function savePosts(posts){
+ localStorage.setItem(currentUser+"_posts", JSON.stringify(posts))
+}
 
 function post(){
  let text = document.getElementById("text").value
  let file = document.getElementById("imageInput").files[0]
+
+ let posts = getPosts()
 
  if(text === "" && !file) return
 
@@ -101,8 +147,8 @@ function post(){
      }
 
      posts.unshift(postData)
-     localStorage.setItem("posts", JSON.stringify(posts))
-     show()
+     savePosts(posts)
+     loadPosts()
    }
 
    reader.readAsDataURL(file)
@@ -114,15 +160,16 @@ function post(){
    }
 
    posts.unshift(postData)
-   localStorage.setItem("posts", JSON.stringify(posts))
-   show()
+   savePosts(posts)
+   loadPosts()
  }
 
  document.getElementById("text").value = ""
  document.getElementById("imageInput").value = ""
 }
 
-function show(){
+function loadPosts(){
+ let posts = getPosts()
  let html = ""
 
  posts.forEach(p=>{
@@ -147,7 +194,7 @@ function aiReply(){
  let reply = ""
 
  if(input.includes("hello")){
-  reply = "Hello! Welcome to Nature 🌿"
+  reply = "Hello! Welcome 🌿"
  }
  else if(input.includes("nature")){
   reply = "Nature is peace 🌄"
