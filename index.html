@@ -6,7 +6,7 @@
 <style>
 body {
   font-family: 'Segoe UI', sans-serif;
-  background: linear-gradient(180deg, #0b1d0b, #020402);
+  background: #0b1d0b;
   color: white;
   margin: 0;
 }
@@ -31,7 +31,7 @@ button {
   padding: 10px;
   border-radius: 20px;
   border: none;
-  background: linear-gradient(45deg, #00c853, #64dd17);
+  background: #00c853;
   margin: 5px;
 }
 
@@ -47,13 +47,14 @@ img {
   border-radius: 10px;
 }
 
-.nav {
-  text-align: center;
+#feedSection {
+  padding-bottom: 120px;
 }
 
-#chatBox {
-  max-height: 300px;
-  overflow-y: scroll;
+/* 🔥 keyboard fix */
+html, body {
+  height: 100%;
+  overflow-x: hidden;
 }
 </style>
 
@@ -72,72 +73,50 @@ img {
 
 <h2 id="welcome"></h2>
 
-<div class="nav">
-<button onclick="showFeed()">🌍</button>
-<button onclick="showProfile()">👤</button>
-<button onclick="showChat()">💬</button>
+<button onclick="showFeed()">Feed</button>
+<button onclick="showChat()">Chat</button>
 <button onclick="showNotifications()">🔔</button>
-<button onclick="logout()">🚪</button>
-</div>
+<button onclick="logout()">Logout</button>
 
-<!-- FEED -->
 <div id="feedSection">
-<input id="text" placeholder="Share something...">
-<input type="file" id="imageInput">
+<input id="text" placeholder="Write post">
 <button onclick="post()">Post</button>
 <div id="feed"></div>
 </div>
 
-<!-- PROFILE -->
-<div id="profileSection" style="display:none;">
-<input id="bioInput" placeholder="Write bio">
-<button onclick="saveBio()">Save</button>
-<p id="bioText"></p>
-<div id="myPosts"></div>
-</div>
-
-<!-- CHAT -->
 <div id="chatSection" style="display:none;">
-<h3>💬 Chat</h3>
 <div id="chatBox"></div>
 <input id="chatInput">
 <button onclick="sendMessage()">Send</button>
 </div>
 
-<!-- NOTIFICATIONS -->
 <div id="notifSection" style="display:none;">
-<h3>🔔 Notifications</h3>
 <div id="notifBox"></div>
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
-  authDomain: "nature-connect-a1592.firebaseapp.com",
-  projectId: "nature-connect-a1592",
-  storageBucket: "nature-connect-a1592.firebasestorage.app",
-  messagingSenderId: "734768119211",
-  appId: "1:734768119211:web:7633f476bc22d8d552e6ee"
-};
+const app = initializeApp({
+ apiKey:"AIzaSy...",
+ projectId:"nature-connect-a1592"
+});
 
-const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let user = localStorage.getItem("user") || "";
 
 if(user) showApp();
 
-window.login = function(){
- user=document.getElementById("username").value.trim();
+window.login=()=>{
+ user=document.getElementById("username").value;
  localStorage.setItem("user",user);
  showApp();
 }
 
-window.logout=function(){
+window.logout=()=>{
  localStorage.removeItem("user");
  location.reload();
 }
@@ -145,105 +124,107 @@ window.logout=function(){
 function showApp(){
  document.getElementById("loginPage").style.display="none";
  document.getElementById("appPage").style.display="block";
- document.getElementById("welcome").innerText="Welcome "+user;
+ document.getElementById("welcome").innerText=user;
  load();
- loadProfile();
 }
 
-// NAV
-window.showFeed=function(){
+window.showFeed=()=>{
  document.getElementById("feedSection").style.display="block";
- document.getElementById("profileSection").style.display="none";
  document.getElementById("chatSection").style.display="none";
  document.getElementById("notifSection").style.display="none";
 }
 
-window.showProfile=function(){
+window.showChat=()=>{
  document.getElementById("feedSection").style.display="none";
- document.getElementById("profileSection").style.display="block";
- document.getElementById("chatSection").style.display="none";
- document.getElementById("notifSection").style.display="none";
- loadProfile();
-}
-
-window.showChat=function(){
- document.getElementById("feedSection").style.display="none";
- document.getElementById("profileSection").style.display="none";
  document.getElementById("chatSection").style.display="block";
- document.getElementById("notifSection").style.display="none";
  loadChat();
 }
 
-window.showNotifications=function(){
+window.showNotifications=()=>{
  document.getElementById("feedSection").style.display="none";
- document.getElementById("profileSection").style.display="none";
  document.getElementById("chatSection").style.display="none";
  document.getElementById("notifSection").style.display="block";
  loadNotifications();
 }
 
 // POST
-window.post=async function(){
- let text=document.getElementById("text").value.trim();
- let file=document.getElementById("imageInput").files[0];
-
- let image=null;
-
- if(file){
-  image=await new Promise(resolve=>{
-   let img=new Image();
-   let reader=new FileReader();
-   reader.onload=e=>img.src=e.target.result;
-
-   img.onload=function(){
-    let canvas=document.createElement("canvas");
-    let ctx=canvas.getContext("2d");
-    let w=600;
-    let scale=w/img.width;
-
-    canvas.width=w;
-    canvas.height=img.height*scale;
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-    resolve(canvas.toDataURL("image/jpeg",0.7));
-   };
-
-   reader.readAsDataURL(file);
-  });
- }
-
- await addDoc(collection(db,"posts"),{
-  user,text,image,likes:0,comments:[]
- });
-
+window.post=async()=>{
+ let text=document.getElementById("text").value;
+ await addDoc(collection(db,"posts"),{user,text,likes:0,comments:[]});
  load();
 }
 
 // LIKE
-window.likePost=async function(id,likes){
+window.likePost=async(id,likes)=>{
  await updateDoc(doc(db,"posts",id),{likes:likes+1});
- await addNotification(user+" liked a post");
+ await addDoc(collection(db,"notifications"),{text:user+" liked post"});
  load();
 }
 
-// COMMENT
-window.addComment=async function(id,comments){
+// 🔥 COMMENT FIXED
+window.addComment=async(id)=>{
  let input=document.getElementById("comment-"+id);
  let text=input.value.trim();
  if(!text)return;
 
+ let snap=await getDocs(collection(db,"posts"));
+ let comments=[];
+
+ snap.forEach(d=>{
+  if(d.id===id){
+    comments=d.data().comments||[];
+  }
+ });
+
  comments.push(user+": "+text);
 
  await updateDoc(doc(db,"posts",id),{comments});
- await addNotification(user+" commented: "+text);
+ await addDoc(collection(db,"notifications"),{text:user+" commented"});
+
+ input.value="";
  load();
 }
 
-// NOTIFICATION
-async function addNotification(text){
- await addDoc(collection(db,"notifications"),{text});
+// LOAD
+async function load(){
+ let snap=await getDocs(collection(db,"posts"));
+ let html="";
+
+ snap.forEach(d=>{
+  let p=d.data();let id=d.id;
+
+  html+=`<div class="card">
+  <b>${p.user}</b>
+  <p>${p.text||""}</p>
+  ❤️ ${p.likes}
+  <button onclick="likePost('${id}',${p.likes})">Like</button>
+  ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
+  <input id="comment-${id}">
+  <button onclick="addComment('${id}')">Send</button>
+  </div>`;
+ });
+
+ document.getElementById("feed").innerHTML=html;
 }
 
+// CHAT
+window.sendMessage=async()=>{
+ let msg=document.getElementById("chatInput").value;
+ await addDoc(collection(db,"chat"),{user,message:msg});
+ loadChat();
+}
+
+async function loadChat(){
+ let snap=await getDocs(collection(db,"chat"));
+ let html="";
+ snap.forEach(d=>{
+  let m=d.data();
+  html+=`<div class="card">${m.user}: ${m.message}</div>`;
+ });
+ document.getElementById("chatBox").innerHTML=html;
+}
+
+// NOTIFICATIONS
 async function loadNotifications(){
  let snap=await getDocs(collection(db,"notifications"));
  let html="";
@@ -253,83 +234,20 @@ async function loadNotifications(){
  document.getElementById("notifBox").innerHTML=html;
 }
 
-// LOAD FEED
-async function load(){
- let snap=await getDocs(collection(db,"posts"));
- let html="";
- snap.forEach(d=>{
-  let p=d.data();
-  let id=d.id;
-
-  html+=`<div class="card">
-  <b>${p.user}</b>
-  ${p.text?`<p>${p.text}</p>`:""}
-  ${p.image?`<img src="${p.image}">`:""}
-  ❤️ ${p.likes}
-  <button onclick="likePost('${id}',${p.likes})">Like</button>
-  ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
-  <input id="comment-${id}">
-  <button onclick="addComment('${id}',${JSON.stringify(p.comments||[])})">Send</button>
-  </div>`;
- });
- document.getElementById("feed").innerHTML=html;
-}
-
-// PROFILE
-window.saveBio=async function(){
- let bio=document.getElementById("bioInput").value;
- await setDoc(doc(db,"users",user),{bio});
- loadProfile();
-}
-
-async function loadProfile(){
- let ref=doc(db,"users",user);
- let snap=await getDoc(ref);
- if(snap.exists()){
-  document.getElementById("bioText").innerText=snap.data().bio;
- }
-
- let posts=await getDocs(collection(db,"posts"));
- let html="";
- posts.forEach(d=>{
-  let p=d.data();
-  if(p.user===user){
-   html+=`<div class="card">${p.text||""}${p.image?`<img src="${p.image}">`:""}</div>`;
-  }
- });
- document.getElementById("myPosts").innerHTML=html;
-}
-
-// CHAT
-window.sendMessage=async function(){
- let msg=document.getElementById("chatInput").value;
- if(!msg)return;
-
- await addDoc(collection(db,"chat"),{
-  user,message:msg
- });
-
- loadChat();
-}
-
-async function loadChat(){
- let snap=await getDocs(collection(db,"chat"));
- let html="";
- snap.forEach(d=>{
-  let m=d.data();
-  html+=`<div class="card"><b>${m.user}</b>: ${m.message}</div>`;
- });
- document.getElementById("chatBox").innerHTML=html;
-
- let box=document.getElementById("chatBox");
- box.scrollTop=box.scrollHeight;
-}
-
-// AUTO REFRESH
+// 🔄 AUTO REFRESH
 setInterval(()=>{
- if(document.getElementById("feedSection").style.display!=="none") load();
- if(document.getElementById("chatSection").style.display!=="none") loadChat();
+ load();
+ loadChat();
 },3000);
+
+// 🔥 keyboard fix
+document.addEventListener("focusin",(e)=>{
+ if(e.target.tagName==="INPUT"){
+  setTimeout(()=>{
+    e.target.scrollIntoView({behavior:"smooth",block:"center"});
+  },300);
+ }
+});
 
 </script>
 
