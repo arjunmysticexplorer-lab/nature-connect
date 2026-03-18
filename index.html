@@ -82,7 +82,7 @@
 <button onclick="post()">Post</button>
 <button onclick="logout()">Logout</button>
 
-<h2>Feed</h2>
+<h2>🌍 Global Feed</h2>
 <div id="feed"></div>
 
 <h2>AI Assistant 🤖</h2>
@@ -114,36 +114,38 @@ function logout(){
  location.reload()
 }
 
-function getPosts(){
- return JSON.parse(localStorage.getItem(currentUser+"_posts")) || []
+// 🌍 GLOBAL STORAGE
+function getGlobalPosts(){
+ return JSON.parse(localStorage.getItem("global_posts")) || []
 }
 
-function savePosts(posts){
- localStorage.setItem(currentUser+"_posts", JSON.stringify(posts))
+function saveGlobalPosts(posts){
+ localStorage.setItem("global_posts", JSON.stringify(posts))
 }
 
 function post(){
  let text = document.getElementById("text").value.trim()
  let file = document.getElementById("imageInput").files[0]
 
- let posts = getPosts()
-
  if(!text && !file){
    alert("Write something or select image")
    return
  }
+
+ let posts = getGlobalPosts()
 
  if(file){
    let reader = new FileReader()
 
    reader.onload = function(e){
      let postData = {
+       user: currentUser,
        text: text,
-       image: e.target.result   // 🔥 Base64 save
+       image: e.target.result
      }
 
      posts.unshift(postData)
-     savePosts(posts)
+     saveGlobalPosts(posts)
      loadPosts()
    }
 
@@ -151,12 +153,13 @@ function post(){
 
  } else {
    let postData = {
+     user: currentUser,
      text: text,
      image: null
    }
 
    posts.unshift(postData)
-   savePosts(posts)
+   saveGlobalPosts(posts)
    loadPosts()
  }
 
@@ -165,11 +168,12 @@ function post(){
 }
 
 function loadPosts(){
- let posts = getPosts()
+ let posts = getGlobalPosts()
  let html = ""
 
  posts.forEach(p=>{
    html += "<div class='card'>"
+   html += "<b>👤 " + p.user + "</b>"
    if(p.text) html += "<p>" + p.text + "</p>"
    if(p.image) html += "<img src='" + p.image + "'/>"
    html += "</div>"
