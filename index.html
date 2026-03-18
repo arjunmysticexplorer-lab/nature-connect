@@ -143,6 +143,7 @@ function showApp(){
  loadProfile();
 }
 
+// NAV
 window.showFeed=function(){
  document.getElementById("feedSection").style.display="block";
  document.getElementById("profileSection").style.display="none";
@@ -294,7 +295,21 @@ async function loadChat(){
  });
 
  document.getElementById("chatBox").innerHTML=html;
+
+ // auto scroll
+ let box=document.getElementById("chatBox");
+ box.scrollTop=box.scrollHeight;
 }
+
+// 🔥 AUTO REFRESH
+setInterval(()=>{
+ let feedVisible=document.getElementById("feedSection").style.display!=="none";
+ let chatVisible=document.getElementById("chatSection").style.display!=="none";
+
+ if(feedVisible) load();
+ if(chatVisible) loadChat();
+
+},3000);
 
 </script>
 
