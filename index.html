@@ -10,28 +10,47 @@
    color: white;
    text-align: center;
  }
-
  input, button {
    padding: 10px;
    margin: 5px;
-   border-radius: 10px;
  }
-
  .card {
    background: #1a2e1a;
    margin: 10px;
    padding: 10px;
    border-radius: 10px;
  }
-
  img {
    width: 100%;
-   margin-top: 10px;
  }
 </style>
 
-<!-- 🔥 Firebase -->
+</head>
+
+<body>
+
+<h1>🌍 Nature Connect</h1>
+
+<div id="loginPage">
+<input id="username" placeholder="Enter name"/>
+<button onclick="login()">Login</button>
+</div>
+
+<div id="appPage" style="display:none;">
+<h2 id="welcome"></h2>
+
+<input id="text" placeholder="Write something"/>
+<input type="file" id="imageInput"/>
+<br>
+<button onclick="post()">Post</button>
+
+<div id="feed"></div>
+
+</div>
+
+<!-- 🔥 SINGLE SCRIPT (ALL IN ONE) -->
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
@@ -47,62 +66,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// 🌍 Firebase functions
-window.addPost = async function(post){
-  await addDoc(collection(db, "posts"), post);
-}
-
-window.getPosts = async function(){
-  let snapshot = await getDocs(collection(db, "posts"));
-  let data = [];
-  snapshot.forEach(doc => data.push(doc.data()));
-  return data;
-}
-</script>
-
-</head>
-
-<body>
-
-<h1>🌍 Nature Connect</h1>
-
-<div id="loginPage">
-<input id="username" placeholder="Enter name"/>
-<button onclick="login()">Login</button>
-</div>
-
-<div id="appPage" style="display:none;">
-
-<h2 id="welcome"></h2>
-
-<input id="text" placeholder="Write something"/>
-<input type="file" id="imageInput"/>
-<br>
-<button onclick="post()">Post</button>
-
-<div id="feed"></div>
-
-<h2>AI 🤖</h2>
-<input id="aiInput">
-<button onclick="ai()">Ask</button>
-<p id="aiOut"></p>
-
-</div>
-
-<script>
-
+// USER
 let user = localStorage.getItem("user") || ""
 
 if(user){
  showApp()
 }
 
-function login(){
+// LOGIN
+window.login = function(){
  user = document.getElementById("username").value
  localStorage.setItem("user", user)
  showApp()
 }
 
+// SHOW APP
 function showApp(){
  document.getElementById("loginPage").style.display="none"
  document.getElementById("appPage").style.display="block"
@@ -110,8 +88,8 @@ function showApp(){
  load()
 }
 
-// 🔥 FIXED POST FUNCTION
-async function post(){
+// POST
+window.post = async function(){
  let text = document.getElementById("text").value
  let file = document.getElementById("imageInput").files[0]
 
@@ -130,10 +108,8 @@ async function post(){
    })
  }
 
- await addPost({
-   user: user,
-   text: text,
-   image: image
+ await addDoc(collection(db, "posts"), {
+   user, text, image
  })
 
  load()
@@ -142,11 +118,13 @@ async function post(){
  document.getElementById("imageInput").value=""
 }
 
+// LOAD POSTS
 async function load(){
- let posts = await getPosts()
+ let snapshot = await getDocs(collection(db, "posts"))
  let html = ""
 
- posts.reverse().forEach(p=>{
+ snapshot.forEach(doc=>{
+   let p = doc.data()
    html += "<div class='card'>"
    html += "<b>"+p.user+"</b>"
    if(p.text) html += "<p>"+p.text+"</p>"
@@ -155,16 +133,6 @@ async function load(){
  })
 
  document.getElementById("feed").innerHTML = html
-}
-
-function ai(){
- let input=document.getElementById("aiInput").value.toLowerCase()
- let out=""
-
- if(input.includes("hello")) out="Hello "+user
- else out="I am your AI 🤖"
-
- document.getElementById("aiOut").innerText=out
 }
 
 </script>
