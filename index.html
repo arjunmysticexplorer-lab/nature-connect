@@ -14,28 +14,26 @@ body {
 .topbar {
   display:flex;
   justify-content:space-between;
-  align-items:center;
   background:#0f2f0f;
   padding:10px;
 }
 
 input {
-  width: 85%;
-  padding: 12px;
-  margin: 8px;
-  border-radius: 20px;
-  border: none;
-  background: #0f2f0f;
-  color: white;
+  width:85%;
+  padding:10px;
+  margin:5px;
+  border-radius:20px;
+  border:none;
+  background:#0f2f0f;
+  color:white;
 }
 
 button {
-  padding: 8px;
-  border-radius: 20px;
-  border: none;
-  background: linear-gradient(45deg,#00c853,#64dd17);
-  color: white;
-  margin:3px;
+  padding:8px;
+  border-radius:20px;
+  border:none;
+  background:#00c853;
+  color:white;
 }
 
 .card {
@@ -45,14 +43,12 @@ button {
   border-radius:10px;
 }
 </style>
-
 </head>
 
 <body>
 
 <div class="topbar">
 <h3>🌍 Nature Connect</h3>
-
 <div>
 <button onclick="showFeed()">🏠</button>
 <button onclick="showProfile()">👤</button>
@@ -67,7 +63,6 @@ button {
 
 <div id="app" style="display:none;">
 
-<!-- FEED -->
 <div id="feedSection">
 <input id="text" placeholder="Write post">
 <input type="file" id="imageInput">
@@ -75,7 +70,6 @@ button {
 <div id="feed"></div>
 </div>
 
-<!-- PROFILE -->
 <div id="profileSection" style="display:none;">
 <h2 id="profileName"></h2>
 <p id="postCount"></p>
@@ -83,7 +77,6 @@ button {
 <div id="profilePosts"></div>
 </div>
 
-<!-- NOTIFICATION -->
 <div id="notificationSection" style="display:none;">
 <h2>🔔 Notifications</h2>
 <div id="notifications"></div>
@@ -115,8 +108,8 @@ window.login = async ()=>{
   following:[]
  },{merge:true});
 
- document.getElementById("loginPage").style.display="none";
- document.getElementById("app").style.display="block";
+ loginPage.style.display="none";
+ app.style.display="block";
 
  load();
 };
@@ -240,10 +233,10 @@ window.followUser=async(target)=>{
  await updateDoc(myRef,{following});
  await updateDoc(tRef,{followers});
 
- alert("Follow updated");
+ loadProfile(); // 🔥 FIX
 };
 
-// LOAD
+// LOAD FEED
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -275,25 +268,30 @@ async function load(){
  feed.innerHTML=html;
 }
 
-// PROFILE
+// PROFILE FIXED
 async function loadProfile(){
- let snap=await getDocs(collection(db,"posts"));
- let u=await getDoc(doc(db,"users",user));
 
- let followers=u.data().followers||[];
+ let userRef = doc(db,"users",user);
+ let userSnap = await getDoc(userRef);
 
- profileName.innerText=user;
- followerCount.innerText="Followers: "+followers.length;
+ let followers = [];
+ if(userSnap.exists()){
+   followers = userSnap.data().followers || [];
+ }
 
+ profileName.innerText = user;
+ followerCount.innerText = "Followers: " + followers.length;
+
+ let snap = await getDocs(collection(db,"posts"));
  let html="";
  let count=0;
 
  snap.forEach(d=>{
-  let p=d.data();
-  if(p.user===user){
-   count++;
-   html+=`<div class="card">${p.text}</div>`;
-  }
+   let p=d.data();
+   if(p.user===user){
+     count++;
+     html+=`<div class="card">${p.text}</div>`;
+   }
  });
 
  postCount.innerText="Posts: "+count;
