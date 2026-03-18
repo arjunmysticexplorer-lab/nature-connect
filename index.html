@@ -60,6 +60,7 @@
 
 <h1>🌍 Nature Connect</h1>
 
+<!-- LOGIN -->
 <div class="container" id="loginPage">
 <h2>Login</h2>
 <input id="username" placeholder="Enter your name" />
@@ -67,6 +68,7 @@
 <button onclick="login()">Enter</button>
 </div>
 
+<!-- APP -->
 <div class="container" id="appPage" style="display:none;">
 
 <h2 id="welcome"></h2>
@@ -82,6 +84,11 @@
 
 <h2>🌍 Global Feed</h2>
 <div id="feed"></div>
+
+<h2>AI Assistant 🤖</h2>
+<input id="aiInput" placeholder="Ask something..." />
+<button onclick="aiReply()">Ask AI</button>
+<p id="aiOutput"></p>
 
 </div>
 
@@ -142,10 +149,6 @@ function post(){
      render(posts)
    }
 
-   reader.onerror = function(){
-     alert("Image load failed ❌")
-   }
-
    reader.readAsDataURL(file)
 
  } else {
@@ -183,6 +186,27 @@ function showApp(){
  document.getElementById("appPage").style.display = "block"
  document.getElementById("welcome").innerText = "Welcome " + currentUser
  render(getPosts())
+}
+
+// 🤖 AI वापस add
+function aiReply(){
+ let input = document.getElementById("aiInput").value.toLowerCase()
+ let reply = ""
+
+ if(input.includes("hello")){
+  reply = "Hello " + currentUser + " 🌿"
+ }
+ else if(input.includes("nature")){
+  reply = "Nature is peace 🌄"
+ }
+ else if(input.includes("help")){
+  reply = "You can post text and images 📸"
+ }
+ else{
+  reply = "I am your AI assistant 🤖"
+ }
+
+ document.getElementById("aiOutput").innerText = reply
 }
 
 </script>
