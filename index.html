@@ -66,19 +66,23 @@ button {
 
 <div id="app" style="display:none;">
 
+<!-- FEED -->
 <div id="feedSection">
 <input id="text" placeholder="Write post">
 <input type="file" id="imageInput">
 <button onclick="post()">Post</button>
+
 <div id="feed"></div>
 </div>
 
+<!-- PROFILE -->
 <div id="profileSection" style="display:none;">
 <h2 id="profileName"></h2>
 <p id="postCount"></p>
 <div id="profilePosts"></div>
 </div>
 
+<!-- NOTIFICATIONS -->
 <div id="notificationSection" style="display:none;">
 <h2>🔔 Notifications</h2>
 <div id="notifications"></div>
@@ -122,7 +126,6 @@ window.showProfile=()=>{
  document.getElementById("feedSection").style.display="none";
  document.getElementById("profileSection").style.display="block";
  document.getElementById("notificationSection").style.display="none";
-
  loadProfile();
 };
 
@@ -130,7 +133,6 @@ window.showNotifications=()=>{
  document.getElementById("feedSection").style.display="none";
  document.getElementById("profileSection").style.display="none";
  document.getElementById("notificationSection").style.display="block";
-
  loadNotifications();
 };
 
@@ -149,33 +151,39 @@ window.post = async () => {
        user,
        text,
        image:reader.result,
-       comments:[]
+       comments:[],
+       likes:0
      });
-
      reset();
    };
 
    reader.readAsDataURL(file);
 
  } else {
-
    await addDoc(collection(db,"posts"),{
      user,
      text,
      image:"",
-     comments:[]
+     comments:[],
+     likes:0
    });
-
    reset();
  }
 };
 
-// RESET INPUT
 function reset(){
  document.getElementById("text").value="";
  document.getElementById("imageInput").value="";
  load();
 }
+
+// ❤️ LIKE SYSTEM
+window.likePost = async(id,likes)=>{
+ await updateDoc(doc(db,"posts",id),{
+  likes: (likes || 0) + 1
+ });
+ load();
+};
 
 // COMMENT
 window.addComment = async(id)=>{
@@ -200,7 +208,7 @@ window.addComment = async(id)=>{
  load();
 };
 
-// LOAD FEED
+// LOAD
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -217,6 +225,9 @@ async function load(){
     ${p.image && p.image.startsWith("data:image")
       ? `<img src="${p.image}" style="width:100%;border-radius:10px;">`
       : ""}
+
+    ❤️ ${p.likes || 0}
+    <button onclick="likePost('${id}',${p.likes||0})">Like</button>
 
     ${(p.comments||[]).map(c=>`
       <div style="background:#0f2f0f;padding:8px;border-radius:10px;margin-top:5px;">
@@ -249,6 +260,7 @@ async function loadProfile(){
     html+=`
     <div class="card">
       <p>${p.text}</p>
+      ❤️ ${p.likes || 0}
       ${p.image && p.image.startsWith("data:image")
         ? `<img src="${p.image}" style="width:100%;border-radius:10px;">`
         : ""}
@@ -264,18 +276,7 @@ async function loadProfile(){
 
 // NOTIFICATIONS
 async function loadNotifications(){
- let snap=await getDocs(collection(db,"posts"));
- let html="";
-
- snap.forEach(d=>{
-  let p=d.data();
-
-  if((p.comments||[]).some(c=>c.startsWith(user))){
-    html+=`<div class="card">💬 Someone replied to you</div>`;
-  }
- });
-
- document.getElementById("notifications").innerHTML=html || "No notifications";
+ document.getElementById("notifications").innerHTML="Coming soon...";
 }
 
 // KEYBOARD FIX
