@@ -9,38 +9,46 @@ body {
   background: #0b1d0b;
   color: white;
   margin: 0;
+  padding-bottom: 200px; /* 🔥 keyboard space */
 }
 
 h1 {
   background: #0f2f0f;
-  padding: 10px;
+  padding: 12px;
+  margin: 0;
 }
 
 input {
   width: 90%;
-  padding: 10px;
-  margin: 5px;
-  border-radius: 10px;
+  padding: 12px;
+  margin: 8px;
+  border-radius: 12px;
   border: none;
+  font-size:16px; /* 🔥 iPhone fix */
 }
 
 button {
-  padding: 8px;
-  border-radius: 10px;
+  padding: 10px;
+  border-radius: 20px;
   border: none;
-  background: green;
-  color: white;
+  background: #00c853;
+  margin: 5px;
 }
 
 .card {
   background: #1a2e1a;
   margin: 10px;
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px;
+  border-radius: 15px;
 }
 
-#feedSection {
-  padding-bottom: 150px;
+.nav {
+  text-align: center;
+}
+
+#chatBox {
+  max-height: 300px;
+  overflow-y: scroll;
 }
 </style>
 
@@ -48,18 +56,41 @@ button {
 
 <body>
 
-<h1>Nature Connect</h1>
+<h1>🌍 Nature Connect</h1>
 
+<div id="loginPage">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
+</div>
 
-<div id="app" style="display:none;">
+<div id="appPage" style="display:none;">
 
-<input id="postText" placeholder="Write post">
-<button onclick="addPost()">Post</button>
+<h2 id="welcome"></h2>
 
+<div class="nav">
+<button onclick="showFeed()">Feed</button>
+<button onclick="showChat()">Chat</button>
+<button onclick="showNotifications()">🔔</button>
+<button onclick="logout()">Logout</button>
+</div>
+
+<!-- FEED -->
+<div id="feedSection">
+<input id="text" placeholder="Write post">
+<button onclick="post()">Post</button>
 <div id="feed"></div>
+</div>
 
+<!-- CHAT -->
+<div id="chatSection" style="display:none;">
+<div id="chatBox"></div>
+<input id="chatInput">
+<button onclick="sendMessage()">Send</button>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifSection" style="display:none;">
+<div id="notifBox"></div>
 </div>
 
 <script type="module">
@@ -68,38 +99,84 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/fireba
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app = initializeApp({
- apiKey:"AIzaSy...",
+ apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
  projectId:"nature-connect-a1592"
 });
 
 const db = getFirestore(app);
 
-let user="";
+let user = localStorage.getItem("user") || "";
 
+if(user) showApp();
+
+// LOGIN
 window.login=()=>{
- user=document.getElementById("username").value;
- document.getElementById("app").style.display="block";
+ user=document.getElementById("username").value.trim();
+ if(!user) return alert("Enter name");
+ localStorage.setItem("user",user);
+ showApp();
+}
+
+window.logout=()=>{
+ localStorage.removeItem("user");
+ location.reload();
+}
+
+function showApp(){
+ document.getElementById("loginPage").style.display="none";
+ document.getElementById("appPage").style.display="block";
+ document.getElementById("welcome").innerText="Welcome "+user;
  load();
+}
+
+// NAV
+window.showFeed=()=>{
+ document.getElementById("feedSection").style.display="block";
+ document.getElementById("chatSection").style.display="none";
+ document.getElementById("notifSection").style.display="none";
+}
+
+window.showChat=()=>{
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("chatSection").style.display="block";
+ document.getElementById("notifSection").style.display="none";
+ loadChat();
+}
+
+window.showNotifications=()=>{
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("chatSection").style.display="none";
+ document.getElementById("notifSection").style.display="block";
+ loadNotifications();
 }
 
 // POST
-window.addPost=async()=>{
- let text=document.getElementById("postText").value;
+window.post=async()=>{
+ let text=document.getElementById("text").value.trim();
+ if(!text) return;
+
  await addDoc(collection(db,"posts"),{
   user,text,likes:0,comments:[]
  });
+
+ document.getElementById("text").value="";
  load();
 }
 
-// COMMENT (FIXED SIMPLE)
+// LIKE
+window.likePost=async(id,likes)=>{
+ await updateDoc(doc(db,"posts",id),{likes:likes+1});
+ await addDoc(collection(db,"notifications"),{text:user+" liked a post"});
+ load();
+}
+
+// 🔥 COMMENT FINAL FIX
 window.addComment=async(id)=>{
- let input=document.getElementById("c-"+id);
- let text=input.value;
- if(!text)return;
+ let input=document.getElementById("comment-"+id);
+ let text=input.value.trim();
+ if(!text) return;
 
- let ref = doc(db,"posts",id);
-
- let snap = await getDocs(collection(db,"posts"));
+ let snap=await getDocs(collection(db,"posts"));
  let comments=[];
 
  snap.forEach(d=>{
@@ -110,13 +187,17 @@ window.addComment=async(id)=>{
 
  comments.push(user+": "+text);
 
- await updateDoc(ref,{comments});
+ await updateDoc(doc(db,"posts",id),{comments});
+
+ await addDoc(collection(db,"notifications"),{
+  text:user+" commented: "+text
+ });
 
  input.value="";
  load();
 }
 
-// LOAD
+// LOAD FEED
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -125,28 +206,71 @@ async function load(){
   let p=d.data();
   let id=d.id;
 
-  html+=`
-  <div class="card">
-    <b>${p.user}</b>
-    <p>${p.text}</p>
+  html+=`<div class="card">
+  <b>${p.user}</b>
+  <p>${p.text}</p>
 
-    ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
+  ❤️ ${p.likes}
+  <button onclick="likePost('${id}',${p.likes})">Like</button>
 
-    <input id="c-${id}" placeholder="Comment">
-    <button onclick="addComment('${id}')">Send</button>
-  </div>
-  `;
+  ${(p.comments||[]).map(c=>`<div>${c}</div>`).join("")}
+
+  <input id="comment-${id}" placeholder="Write comment...">
+  <button onclick="addComment('${id}')">Send</button>
+  </div>`;
  });
 
  document.getElementById("feed").innerHTML=html;
 }
 
-// 🔥 keyboard fix
+// CHAT
+window.sendMessage=async()=>{
+ let msg=document.getElementById("chatInput").value.trim();
+ if(!msg) return;
+
+ await addDoc(collection(db,"chat"),{
+  user,message:msg
+ });
+
+ document.getElementById("chatInput").value="";
+ loadChat();
+}
+
+async function loadChat(){
+ let snap=await getDocs(collection(db,"chat"));
+ let html="";
+ snap.forEach(d=>{
+  let m=d.data();
+  html+=`<div class="card">${m.user}: ${m.message}</div>`;
+ });
+ document.getElementById("chatBox").innerHTML=html;
+
+ let box=document.getElementById("chatBox");
+ box.scrollTop=box.scrollHeight;
+}
+
+// NOTIFICATIONS
+async function loadNotifications(){
+ let snap=await getDocs(collection(db,"notifications"));
+ let html="";
+ snap.forEach(d=>{
+  html+=`<div class="card">${d.data().text}</div>`;
+ });
+ document.getElementById("notifBox").innerHTML=html;
+}
+
+// 🔄 AUTO REFRESH
+setInterval(()=>{
+ load();
+ loadChat();
+},3000);
+
+// 🔥 KEYBOARD FIX FINAL
 document.addEventListener("focusin",(e)=>{
  if(e.target.tagName==="INPUT"){
   setTimeout(()=>{
-    e.target.scrollIntoView({block:"center"});
-  },300);
+    e.target.scrollIntoView({behavior:"smooth",block:"center"});
+  },400);
  }
 });
 
