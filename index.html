@@ -6,18 +6,50 @@
 <style>
  body {
    font-family: Arial;
-   background: #0b1d0b;
+   background: linear-gradient(to bottom, #0b1d0b, #1f3d1f);
    color: white;
+   margin: 0;
    text-align: center;
  }
 
- input, button {
+ h1 {
+   background: black;
+   padding: 15px;
+   margin: 0;
+ }
+
+ .container {
+   padding: 20px;
+ }
+
+ input {
    padding: 10px;
+   width: 80%;
    margin: 5px;
+   border-radius: 10px;
+   border: none;
+ }
+
+ button {
+   padding: 10px 20px;
+   margin: 10px;
+   border: none;
+   border-radius: 20px;
+   background: green;
+   color: white;
+   font-weight: bold;
+ }
+
+ .card {
+   background: #1a2e1a;
+   padding: 15px;
+   margin: 10px;
+   border-radius: 15px;
  }
 
  img {
    width: 100%;
+   border-radius: 10px;
    margin-top: 10px;
  }
 </style>
@@ -26,28 +58,37 @@
 
 <body>
 
-<h1>Nature Connect</h1>
+<h1>🌍 Nature Connect</h1>
 
-<!-- LOGIN -->
-<div id="loginPage">
-<input id="username" placeholder="Enter name" />
-<button onclick="login()">Login</button>
+<div class="container" id="loginPage">
+
+<h2>Login</h2>
+<input id="username" placeholder="Enter your name" />
+<br>
+<button onclick="login()">Enter</button>
+
 </div>
 
-<!-- APP -->
-<div id="appPage" style="display:none;">
+<div class="container" id="appPage" style="display:none;">
 
-<h3 id="welcome"></h3>
+<h2 id="welcome"></h2>
 
-<input id="text" placeholder="Say something..." />
+<input id="text" placeholder="Share your moment..." />
 <br>
 
 <input type="file" id="imageInput" accept="image/*" />
 <br>
 
 <button onclick="post()">Post</button>
+<button onclick="logout()">Logout</button>
 
+<h2>Feed</h2>
 <div id="feed"></div>
+
+<h2>AI Assistant 🤖</h2>
+<input id="aiInput" placeholder="Ask something..." />
+<button onclick="aiReply()">Ask AI</button>
+<p id="aiOutput"></p>
 
 </div>
 
@@ -60,7 +101,7 @@ if(currentUser){
 }
 
 function login(){
- let name = document.getElementById("username").value
+ let name = document.getElementById("username").value.trim()
  if(name){
   currentUser = name
   localStorage.setItem("user", name)
@@ -68,11 +109,9 @@ function login(){
  }
 }
 
-function showApp(){
- document.getElementById("loginPage").style.display = "none"
- document.getElementById("appPage").style.display = "block"
- document.getElementById("welcome").innerText = "Welcome " + currentUser
- loadPosts()
+function logout(){
+ localStorage.removeItem("user")
+ location.reload()
 }
 
 function getPosts(){
@@ -84,25 +123,26 @@ function savePosts(posts){
 }
 
 function post(){
- let text = document.getElementById("text").value
+ let text = document.getElementById("text").value.trim()
  let file = document.getElementById("imageInput").files[0]
 
- alert("Post button clicked") // DEBUG
-
  let posts = getPosts()
+
+ if(!text && !file){
+   alert("Write something or select image")
+   return
+ }
 
  if(file){
    let reader = new FileReader()
 
    reader.onload = function(e){
-     alert("Image loaded") // DEBUG
-
-     let post = {
+     let postData = {
        text: text,
        image: e.target.result
      }
 
-     posts.unshift(post)
+     posts.unshift(postData)
      savePosts(posts)
      loadPosts()
    }
@@ -110,16 +150,18 @@ function post(){
    reader.readAsDataURL(file)
 
  } else {
-   let post = {
+   let postData = {
      text: text,
      image: null
    }
 
-   posts.unshift(post)
+   posts.unshift(postData)
    savePosts(posts)
    loadPosts()
  }
 
+ document.getElementById("text").value = ""
+ document.getElementById("imageInput").value = ""
 }
 
 function loadPosts(){
@@ -127,13 +169,37 @@ function loadPosts(){
  let html = ""
 
  posts.forEach(p=>{
-   html += "<div>"
+   html += "<div class='card'>"
    if(p.text) html += "<p>" + p.text + "</p>"
-   if(p.image) html += "<img src='"+p.image+"'/>"
-   html += "</div><hr>"
+   if(p.image) html += "<img src='" + p.image + "'/>"
+   html += "</div>"
  })
 
  document.getElementById("feed").innerHTML = html
+}
+
+function showApp(){
+ document.getElementById("loginPage").style.display = "none"
+ document.getElementById("appPage").style.display = "block"
+ document.getElementById("welcome").innerText = "Welcome " + currentUser
+ loadPosts()
+}
+
+function aiReply(){
+ let input = document.getElementById("aiInput").value.toLowerCase()
+ let reply = ""
+
+ if(input.includes("hello")){
+  reply = "Hello! Welcome 🌿"
+ }
+ else if(input.includes("nature")){
+  reply = "Nature is peace 🌄"
+ }
+ else{
+  reply = "Ask about nature 🙂"
+ }
+
+ document.getElementById("aiOutput").innerText = reply
 }
 
 </script>
