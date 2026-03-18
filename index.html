@@ -26,7 +26,6 @@ img {
   background: #0f2a0f;
   margin: 5px;
   padding: 5px;
-  font-size: 14px;
 }
 </style>
 
@@ -42,21 +41,42 @@ img {
 </div>
 
 <div id="appPage" style="display:none;">
+
 <h2 id="welcome"></h2>
 
-<input id="text" placeholder="Write something">
-<input type="file" id="imageInput" accept="image/*">
-<br>
-<button onclick="post()">Post</button>
+<button onclick="showFeed()">🌍 Feed</button>
+<button onclick="showProfile()">👤 Profile</button>
 <button onclick="logout()">Logout</button>
 
+<div id="feedSection">
+
+<input id="text" placeholder="Write something">
+<input type="file" id="imageInput">
+<br>
+<button onclick="post()">Post</button>
+
 <div id="feed"></div>
+</div>
+
+<div id="profileSection" style="display:none;">
+<h2>My Profile</h2>
+
+<input id="bioInput" placeholder="Write your bio">
+<button onclick="saveBio()">Save Bio</button>
+
+<p id="bioText"></p>
+
+<h3>My Posts</h3>
+<div id="myPosts"></div>
+
+</div>
+
 </div>
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
@@ -73,139 +93,173 @@ const db = getFirestore(app);
 let user = localStorage.getItem("user") || "";
 
 if(user){
-  showApp();
+ showApp();
 }
 
 window.login = function(){
-  user = document.getElementById("username").value.trim();
-  if(!user) return alert("Enter name");
-  localStorage.setItem("user", user);
-  showApp();
+ user = document.getElementById("username").value.trim();
+ if(!user) return alert("Enter name");
+ localStorage.setItem("user", user);
+ showApp();
 }
 
 window.logout = function(){
-  localStorage.removeItem("user");
-  location.reload();
+ localStorage.removeItem("user");
+ location.reload();
 }
 
 function showApp(){
-  document.getElementById("loginPage").style.display = "none";
-  document.getElementById("appPage").style.display = "block";
-  document.getElementById("welcome").innerText = "Welcome " + user;
-  load();
+ document.getElementById("loginPage").style.display="none";
+ document.getElementById("appPage").style.display="block";
+ document.getElementById("welcome").innerText="Welcome "+user;
+ load();
+ loadProfile();
+}
+
+window.showFeed = function(){
+ document.getElementById("feedSection").style.display="block";
+ document.getElementById("profileSection").style.display="none";
+}
+
+window.showProfile = function(){
+ document.getElementById("feedSection").style.display="none";
+ document.getElementById("profileSection").style.display="block";
+ loadProfile();
 }
 
 // POST
 window.post = async function(){
 
-  let text = document.getElementById("text").value.trim();
-  let file = document.getElementById("imageInput").files[0];
+ let text = document.getElementById("text").value.trim();
+ let file = document.getElementById("imageInput").files[0];
 
-  if(!text && !file){
-    alert("Write something or select image");
-    return;
-  }
+ if(!text && !file){
+  alert("Write something or select image");
+  return;
+ }
 
-  let image = null;
+ let image = null;
 
-  if(file){
-    image = await new Promise(resolve=>{
-      let img = new Image();
-      let reader = new FileReader();
+ if(file){
+  image = await new Promise(resolve=>{
+   let img = new Image();
+   let reader = new FileReader();
 
-      reader.onload = e => img.src = e.target.result;
+   reader.onload = e => img.src = e.target.result;
 
-      img.onload = function(){
-        let canvas = document.createElement("canvas");
-        let ctx = canvas.getContext("2d");
+   img.onload = function(){
+    let canvas = document.createElement("canvas");
+    let ctx = canvas.getContext("2d");
 
-        let maxWidth = 600;
-        let scale = maxWidth / img.width;
+    let maxWidth = 600;
+    let scale = maxWidth / img.width;
 
-        canvas.width = maxWidth;
-        canvas.height = img.height * scale;
+    canvas.width = maxWidth;
+    canvas.height = img.height * scale;
 
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        resolve(canvas.toDataURL("image/jpeg", 0.7));
-      };
+    resolve(canvas.toDataURL("image/jpeg", 0.7));
+   };
 
-      reader.readAsDataURL(file);
-    });
-  }
-
-  await addDoc(collection(db, "posts"), {
-    user,
-    text,
-    image,
-    likes: 0,
-    comments: []
+   reader.readAsDataURL(file);
   });
+ }
 
-  document.getElementById("text").value = "";
-  document.getElementById("imageInput").value = "";
+ await addDoc(collection(db,"posts"),{
+  user,text,image,likes:0,comments:[]
+ });
 
-  load();
+ document.getElementById("text").value="";
+ document.getElementById("imageInput").value="";
+
+ load();
 }
 
 // LIKE
-window.likePost = async function(id, likes){
-  await updateDoc(doc(db,"posts",id),{
-    likes: likes + 1
-  });
-  load();
+window.likePost = async function(id,likes){
+ await updateDoc(doc(db,"posts",id),{
+  likes:likes+1
+ });
+ load();
 }
 
 // COMMENT
-window.addComment = async function(id, comments){
-  let input = document.getElementById("comment-"+id);
-  let text = input.value.trim();
+window.addComment = async function(id,comments){
+ let input=document.getElementById("comment-"+id);
+ let text=input.value.trim();
+ if(!text)return;
 
-  if(!text) return;
+ comments.push(user+": "+text);
 
-  comments.push(user + ": " + text);
+ await updateDoc(doc(db,"posts",id),{
+  comments:comments
+ });
 
-  await updateDoc(doc(db,"posts",id),{
-    comments: comments
-  });
-
-  input.value="";
-  load();
+ input.value="";
+ load();
 }
 
-// LOAD
+// LOAD FEED
 async function load(){
-  let snapshot = await getDocs(collection(db, "posts"));
-  let html = "";
+ let snapshot=await getDocs(collection(db,"posts"));
+ let html="";
 
-  snapshot.forEach(docSnap=>{
-    let p = docSnap.data();
-    let id = docSnap.id;
+ snapshot.forEach(docSnap=>{
+  let p=docSnap.data();
+  let id=docSnap.id;
 
-    html += "<div class='card'>";
-    html += "<b>"+p.user+"</b>";
+  html+="<div class='card'>";
+  html+="<b>"+p.user+"</b>";
 
-    if(p.text) html += "<p>"+p.text+"</p>";
-    if(p.image) html += "<img src='"+p.image+"'>";
+  if(p.text) html+="<p>"+p.text+"</p>";
+  if(p.image) html+="<img src='"+p.image+"'>";
 
-    html += "<p>❤️ "+(p.likes||0)+"</p>";
-    html += "<button onclick=\"likePost('"+id+"',"+(p.likes||0)+")\">Like</button>";
+  html+="<p>❤️ "+(p.likes||0)+"</p>";
+  html+="<button onclick=\"likePost('"+id+"',"+(p.likes||0)+")\">Like</button>";
 
-    // COMMENTS
-    html += "<div>";
-    (p.comments||[]).forEach(c=>{
-      html += "<div class='comment'>"+c+"</div>";
-    });
-
-    html += "<input id='comment-"+id+"' placeholder='Write comment'>";
-    html += "<button onclick=\"addComment('"+id+"',"+JSON.stringify(p.comments||[])+")\">Comment</button>";
-
-    html += "</div>";
-
-    html += "</div>";
+  (p.comments||[]).forEach(c=>{
+   html+="<div class='comment'>"+c+"</div>";
   });
 
-  document.getElementById("feed").innerHTML = html;
+  html+="<input id='comment-"+id+"' placeholder='Comment'>";
+  html+="<button onclick=\"addComment('"+id+"',"+JSON.stringify(p.comments||[])+")\">Send</button>";
+
+  html+="</div>";
+ });
+
+ document.getElementById("feed").innerHTML=html;
+}
+
+// PROFILE
+window.saveBio = async function(){
+ let bio=document.getElementById("bioInput").value;
+ await setDoc(doc(db,"users",user),{bio});
+ loadProfile();
+}
+
+async function loadProfile(){
+ let docRef=doc(db,"users",user);
+ let snap=await getDoc(docRef);
+
+ if(snap.exists()){
+  document.getElementById("bioText").innerText="Bio: "+snap.data().bio;
+ }
+
+ let snapshot=await getDocs(collection(db,"posts"));
+ let html="";
+
+ snapshot.forEach(docSnap=>{
+  let p=docSnap.data();
+  if(p.user===user){
+   html+="<div class='card'>";
+   if(p.text) html+="<p>"+p.text+"</p>";
+   if(p.image) html+="<img src='"+p.image+"'>";
+   html+="</div>";
+  }
+ });
+
+ document.getElementById("myPosts").innerHTML=html;
 }
 
 </script>
