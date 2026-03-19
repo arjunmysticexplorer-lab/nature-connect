@@ -4,81 +4,26 @@
 <title>Nature Connect</title>
 
 <style>
-body{
- margin:0;
- background:linear-gradient(180deg,#041404,#071a07);
- color:white;
- font-family:-apple-system,sans-serif;
-}
+body{margin:0;background:linear-gradient(180deg,#041404,#071a07);color:white;font-family:sans-serif;}
+.top{display:flex;justify-content:space-between;padding:15px;background:#0c2b0c;}
+button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
+input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
+.card{background:#1b3b1b;padding:15px;border-radius:15px;margin:10px;}
+img{width:100%;border-radius:10px;margin-top:10px;}
 
-/* TOP */
-.top{
- display:flex;
- justify-content:space-between;
- padding:15px;
- background:#0c2b0c;
-}
-
-/* INPUT */
-input{
- width:80%;
- padding:10px;
- border-radius:20px;
- border:none;
- background:#123812;
- color:white;
- margin:5px;
-}
-
-/* BUTTON */
-button{
- padding:8px 12px;
- border:none;
- border-radius:20px;
- background:#00c853;
- color:white;
-}
-
-/* CARD */
-.card{
- background:#1b3b1b;
- padding:15px;
- border-radius:15px;
- margin:10px;
-}
-
-/* IMAGE */
-img{
- width:100%;
- border-radius:10px;
- margin-top:10px;
-}
-
-/* STORY */
 .storyBar{display:flex;overflow:auto;padding:10px;}
 .story{margin-right:10px;text-align:center;}
 .story img{width:65px;height:65px;border-radius:50%;border:3px solid #00e676;}
 
-/* CHAT */
-.chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
-.chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
+.chat-me{background:#00c853;padding:10px;border-radius:10px;margin:5px;text-align:right;}
+.chat-other{background:#1b3b1b;padding:10px;border-radius:10px;margin:5px;}
 .status{font-size:10px;color:lightgray;}
 .typing{font-size:12px;color:#00e676;}
 
-/* STORY FULL */
-.fullStory{
- position:fixed;
- top:0;left:0;
- width:100%;height:100%;
- background:black;
- display:none;
- justify-content:center;
- align-items:center;
- flex-direction:column;
- z-index:100;
-}
+.fullStory{position:fixed;top:0;left:0;width:100%;height:100%;background:black;display:none;justify-content:center;align-items:center;flex-direction:column;z-index:100;}
 .fullStory img{width:100%;height:80%;object-fit:contain;}
 .closeBtn{position:absolute;top:20px;right:20px;}
+.dp{width:30px;height:30px;border-radius:50%;vertical-align:middle;margin-right:5px;}
 </style>
 </head>
 
@@ -125,6 +70,12 @@ img{
 <!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
+
+<input type="file" id="dpFile">
+<button onclick="uploadDP()">Upload DP</button>
+<br>
+<img id="myDP" style="width:80px;height:80px;border-radius:50%">
+
 <p id="pcount"></p>
 <p id="followers"></p>
 <div id="profilePosts"></div>
@@ -186,49 +137,17 @@ window.login=async ()=>{
  loadStories();
 };
 
-// NAV
-window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";};
-window.showProfile=async ()=>{
- feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";
+// DP UPLOAD
+window.uploadDP=async ()=>{
+ let file=dpFile.files[0];
+ if(!file) return alert("Select image");
 
- pname.innerText=user;
-
- let snap=await getDocs(collection(db,"posts"));
- let html="";let count=0;
-
- snap.forEach(d=>{
-  let p=d.data();
-  if(p.user===user){
-   count++;
-   html+=`<div class="card">${p.text}</div>`;
-  }
- });
-
- pcount.innerText="Posts: "+count;
-
- let u=await getDoc(doc(db,"users",user));
- followers.innerText="Followers: "+(u.data()?.followers?.length||0);
-
- profilePosts.innerHTML=html;
-};
-
-window.showNotifications=()=>{
- feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";
-
- onSnapshot(collection(db,"notifications"),(snap)=>{
-  let html="";
-  snap.forEach(d=>{
-   let n=d.data();
-   if(n.to===user){
-    html+=`<div class="card">${n.text}</div>`;
-   }
-  });
-  note.innerHTML=html;
- });
-};
-
-window.showChat=()=>{
- feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";
+ let reader=new FileReader();
+ reader.onload=async ()=>{
+  await updateDoc(doc(db,"users",user),{dp:reader.result});
+  myDP.src=reader.result;
+ };
+ reader.readAsDataURL(file);
 };
 
 // STORY
@@ -274,11 +193,8 @@ function showStory(){
 
 window.nextStory=()=>{
  currentIndex++;
- if(currentIndex>=storyList.length){
-  closeStory();
- }else{
-  showStory();
- }
+ if(currentIndex>=storyList.length) closeStory();
+ else showStory();
 };
 
 window.closeStory=(e)=>{
@@ -369,10 +285,16 @@ function load(){
 
   for(const d of snap.docs){
    let p=d.data();
+   let u=await getDoc(doc(db,"users",p.user));
+   let dp=u.data()?.dp || "";
 
    html+=`
    <div class="card">
-    <b>${p.user}</b>
+    <b>
+     <img src="${dp}" class="dp">
+     ${p.user}
+    </b>
+
     ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
 
     <p>${p.text}</p>
@@ -403,11 +325,7 @@ window.sendMsg=async ()=>{
  let text=msg.value;
  if(!text||!currentChatUser) return;
 
- await addDoc(collection(db,"messages"),{
-  from:user,to:currentChatUser,text,seen:false
- });
-
- await setDoc(doc(db,"typing",user),{typing:false},{merge:true});
+ await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text,seen:false});
  msg.value="";
 };
 
@@ -430,10 +348,8 @@ async function markSeen(){
 }
 
 function loadChat(){
-
  onSnapshot(collection(db,"messages"),(snap)=>{
   let html="";
-
   snap.forEach(d=>{
    let m=d.data();
 
@@ -462,7 +378,6 @@ function loadChat(){
   });
   typingBox.innerHTML=tHtml;
  });
-
 }
 
 </script>
