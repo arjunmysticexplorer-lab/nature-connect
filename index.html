@@ -239,13 +239,20 @@ window.followUser=async(target)=>{
  load();
 };
 
-// LOAD POSTS
+// 🔥 SMART FEED LOAD
 async function load(){
+
+ let userDoc = await getDoc(doc(db,"users",user));
+ let following = userDoc.data()?.following || [];
+
  let snap=await getDocs(collection(db,"posts"));
  let html="";
 
  snap.forEach(d=>{
   let p=d.data();
+
+  // 🔥 FILTER
+  if(p.user !== user && !following.includes(p.user)) return;
 
   html+=`
   <div class="card">
