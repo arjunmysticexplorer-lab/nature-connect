@@ -5,14 +5,15 @@
 
 <style>
 body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
-.top{display:flex;justify-content:space-between;align-items:center;background:#0c2b0c;padding:12px;}
+.top{display:flex;justify-content:space-between;background:#0c2b0c;padding:12px;}
 input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
-button{padding:8px 12px;border:none;border-radius:20px;background:#00c853;color:white;}
-.card{background:linear-gradient(145deg,#1b3b1b,#0f2d0f);padding:15px;border-radius:15px;margin:10px;box-shadow:0 5px 15px rgba(0,0,0,0.5);}
-img{width:100%;border-radius:10px;margin-top:10px;max-height:400px;object-fit:cover;background:#0a250a;}
+button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
+.card{background:linear-gradient(145deg,#1b3b1b,#0f2d0f);padding:15px;border-radius:15px;margin:10px;}
+img{width:100%;border-radius:10px;margin-top:10px;}
 .chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
 .chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
 </style>
+
 </head>
 
 <body>
@@ -96,7 +97,8 @@ window.login=async ()=>{
 
  await setDoc(doc(db,"users",user),{
   followers:[],
-  following:[]
+  following:[],
+  online:true   // 🟢
  },{merge:true});
 
  loginBox.style.display="none";
@@ -104,6 +106,13 @@ window.login=async ()=>{
 
  load();
 };
+
+// AUTO OFFLINE
+window.addEventListener("beforeunload", async ()=>{
+ if(user){
+  await updateDoc(doc(db,"users",user),{online:false});
+ }
+});
 
 // NAV
 window.showFeed=()=>{
@@ -239,22 +248,24 @@ window.followUser=async(target)=>{
  await updateDoc(tRef,{followers});
 };
 
-// 🔥 REAL-TIME FEED
+// 🔥 REAL-TIME FEED + ONLINE STATUS
 function load(){
 
  onSnapshot(collection(db,"posts"), async (snap)=>{
 
   let html="";
 
-  snap.forEach(d=>{
+  for(const d of snap.docs){
    let p=d.data();
+
+   let userSnap=await getDoc(doc(db,"users",p.user));
+   let isOnline=userSnap.data()?.online;
 
    html+=`
    <div class="card">
-    <div style="display:flex;justify-content:space-between">
-      <b>${p.user}</b>
-      ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
-    </div>
+    <b>${p.user} ${isOnline ? "🟢" : "⚫"}</b>
+
+    ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
 
     <p>${p.text}</p>
     ${p.image?`<img src="${p.image}">`:""}
@@ -264,11 +275,11 @@ function load(){
 
     <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
 
-    <input id="c-${d.id}" placeholder="Write comment">
+    <input id="c-${d.id}">
     <button onclick="sendComment('${d.id}')">Send</button>
    </div>
    `;
-  });
+  }
 
   posts.innerHTML=html;
 
@@ -297,22 +308,28 @@ window.sendMsg=async ()=>{
 
 function loadChat(){
 
- onSnapshot(collection(db,"messages"),(snap)=>{
+ onSnapshot(collection(db,"messages"), async (snap)=>{
+
   let html="";
 
-  snap.forEach(d=>{
+  for(const d of snap.docs){
    let m=d.data();
 
    if(
     (m.from===user && m.to===currentChatUser) ||
     (m.from===currentChatUser && m.to===user)
    ){
+    let userSnap=await getDoc(doc(db,"users",m.from));
+    let isOnline=userSnap.data()?.online;
+
     let cls=m.from===user?"chat-me":"chat-other";
-    html+=`<div class="${cls}">${m.text}</div>`;
+
+    html+=`<div class="${cls}">${m.text} ${isOnline?"🟢":""}</div>`;
    }
-  });
+  }
 
   chatBox.innerHTML=html;
+
  });
 
 }
