@@ -24,7 +24,7 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 </div>
 
 <div id="loginBox">
-<input id="name" placeholder="Enter name">
+<input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
 </div>
 
@@ -34,6 +34,7 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
+
 <div id="posts"></div>
 </div>
 
@@ -41,10 +42,11 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 <h2 id="pname"></h2>
 <p id="pcount"></p>
 <p id="followers"></p>
+<div id="profilePosts"></div>
 </div>
 
 <div id="notify" style="display:none">
-<h2>Notifications</h2>
+<h2>🔔 Notifications</h2>
 <div id="note"></div>
 </div>
 
@@ -64,11 +66,15 @@ const db = getFirestore(app);
 
 let user="";
 
+// LOGIN
 window.login = async ()=>{
- user=document.getElementById("name").value.trim();
+ user=document.getElementById("username").value.trim();
  if(!user) return alert("Enter name");
 
- await setDoc(doc(db,"users",user),{followers:[]},{merge:true});
+ await setDoc(doc(db,"users",user),{
+  followers:[],
+  following:[]
+ },{merge:true});
 
  loginBox.style.display="none";
  main.style.display="block";
@@ -76,6 +82,7 @@ window.login = async ()=>{
  load();
 };
 
+// NAVIGATION
 window.showFeed=()=>{
  feed.style.display="block";
  profile.style.display="none";
@@ -91,14 +98,29 @@ window.showProfile=async ()=>{
 
  let snap=await getDocs(collection(db,"posts"));
  let count=0;
+ let html="";
+
  snap.forEach(d=>{
-  if(d.data().user===user) count++;
+  let p=d.data();
+
+  if(p.user===user){
+    count++;
+
+    html+=`
+    <div class="card">
+      <p>${p.text}</p>
+      ${p.image?`<img src="${p.image}" width="100%">`:""}
+    </div>
+    `;
+  }
  });
 
  pcount.innerText="Posts: "+count;
 
  let u=await getDoc(doc(db,"users",user));
  followers.innerText="Followers: "+(u.data()?.followers?.length||0);
+
+ document.getElementById("profilePosts").innerHTML = html;
 };
 
 window.showNotifications=async ()=>{
@@ -108,13 +130,18 @@ window.showNotifications=async ()=>{
 
  let snap=await getDocs(collection(db,"notifications"));
  let html="";
+
  snap.forEach(d=>{
   let n=d.data();
-  if(n.to===user) html+=`<div class="card">${n.text}</div>`;
+  if(n.to===user){
+    html+=`<div class="card">${n.text}</div>`;
+  }
  });
- note.innerHTML=html;
+
+ note.innerHTML=html || "No notifications";
 };
 
+// POST
 window.addPost=async ()=>{
  let text=document.getElementById("postText").value;
  let file=document.getElementById("file").files[0];
@@ -136,8 +163,11 @@ window.addPost=async ()=>{
  }
 };
 
-window.like=async(id,l,owner)=>{
- await updateDoc(doc(db,"posts",id),{likes:l+1});
+// LIKE
+window.like=async(id,likes,owner)=>{
+ await updateDoc(doc(db,"posts",id),{
+  likes:likes+1
+ });
 
  if(owner!==user){
   await addDoc(collection(db,"notifications"),{
@@ -149,6 +179,67 @@ window.like=async(id,l,owner)=>{
  load();
 };
 
+// COMMENT
+window.sendComment=async(id,owner)=>{
+ let input=document.getElementById("c-"+id);
+ let text=input.value.trim();
+
+ if(!text) return;
+
+ let snap=await getDocs(collection(db,"posts"));
+ let comments=[];
+
+ snap.forEach(d=>{
+  if(d.id===id){
+    comments=d.data().comments||[];
+  }
+ });
+
+ comments.push(user+": "+text);
+
+ await updateDoc(doc(db,"posts",id),{
+  comments
+ });
+
+ if(owner!==user){
+  await addDoc(collection(db,"notifications"),{
+   text:user+" commented: "+text,
+   to:owner
+  });
+ }
+
+ input.value="";
+ load();
+};
+
+// FOLLOW
+window.followUser=async(target)=>{
+ if(target===user) return;
+
+ let myRef=doc(db,"users",user);
+ let tRef=doc(db,"users",target);
+
+ let my=(await getDoc(myRef)).data();
+ let t=(await getDoc(tRef)).data();
+
+ let following=my.following||[];
+ let followers=t.followers||[];
+
+ if(following.includes(target)){
+  following=following.filter(u=>u!==target);
+  followers=followers.filter(u=>u!==user);
+ }else{
+  following.push(target);
+  followers.push(user);
+ }
+
+ await updateDoc(myRef,{following});
+ await updateDoc(tRef,{followers});
+
+ load();
+};
+
+// LOAD POSTS
 async function load(){
  let snap=await getDocs(collection(db,"posts"));
  let html="";
@@ -158,13 +249,23 @@ async function load(){
 
   html+=`
   <div class="card">
-  <b>${p.user}</b>
-  <p>${p.text}</p>
+    <b>${p.user}</b>
+    ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
 
-  ${p.image?`<img src="${p.image}" width="100%">`:""}
+    <p>${p.text}</p>
 
-  ❤️ ${p.likes}
-  <button onclick="like('${d.id}',${p.likes},'${p.user}')">Like</button>
+    ${p.image?`<img src="${p.image}" width="100%">`:""}
+
+    ❤️ ${p.likes}
+    <button onclick="like('${d.id}',${p.likes},'${p.user}')">Like</button>
+
+    <div>
+      ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
+    </div>
+
+    <input id="c-${d.id}" placeholder="Write comment">
+    <button onclick="sendComment('${d.id}','${p.user}')">Send</button>
+
   </div>
   `;
  });
