@@ -4,21 +4,87 @@
 <title>Nature Connect</title>
 
 <style>
-body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
-.top{display:flex;justify-content:space-between;background:#0c2b0c;padding:12px;}
-input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
-button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
-.card{background:linear-gradient(145deg,#1b3b1b,#0f2d0f);padding:15px;border-radius:15px;margin:10px;}
-img{width:100%;border-radius:10px;margin-top:10px;}
+body{
+ margin:0;
+ background:linear-gradient(180deg,#041404,#071a07);
+ color:white;
+ font-family:-apple-system,sans-serif;
+}
+
+/* TOP */
+.top{
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ padding:15px;
+ background:rgba(12,43,12,0.9);
+ backdrop-filter:blur(10px);
+ position:sticky;
+ top:0;
+}
+
+input{
+ width:80%;
+ padding:12px;
+ border-radius:25px;
+ border:none;
+ background:#0f2d0f;
+ color:white;
+ margin:6px;
+}
+
+button{
+ padding:10px 15px;
+ border:none;
+ border-radius:25px;
+ background:linear-gradient(45deg,#00c853,#00e676);
+ color:black;
+ font-weight:bold;
+}
+
+/* CARD */
+.card{
+ background:rgba(20,50,20,0.7);
+ backdrop-filter:blur(12px);
+ padding:15px;
+ border-radius:20px;
+ margin:12px;
+ box-shadow:0 8px 20px rgba(0,0,0,0.6);
+}
+
+img{
+ width:100%;
+ border-radius:15px;
+ margin-top:10px;
+}
+
+/* STORY */
 .storyBar{display:flex;overflow:auto;padding:10px;}
 .story{margin-right:10px;text-align:center;}
-.story img{width:60px;height:60px;border-radius:50%;border:2px solid #00c853;}
-.chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
-.chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
-.typing{font-size:12px;color:lightgreen;margin:5px;}
-.status{font-size:10px;color:lightgray;}
-</style>
+.story img{width:65px;height:65px;border-radius:50%;border:3px solid #00e676;}
 
+/* CHAT */
+.chat-me{
+ background:linear-gradient(45deg,#00c853,#00e676);
+ color:black;
+ padding:10px;
+ border-radius:15px;
+ margin:6px;
+ text-align:right;
+ max-width:70%;
+ margin-left:auto;
+}
+.chat-other{
+ background:#1b3b1b;
+ padding:10px;
+ border-radius:15px;
+ margin:6px;
+ max-width:70%;
+}
+
+.status{font-size:10px;opacity:0.7;}
+.typing{font-size:12px;color:#00e676;}
+</style>
 </head>
 
 <body>
@@ -86,16 +152,15 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <script type="module">
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import {
-getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import {getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot}
+from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-const app = initializeApp({
+const app=initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
  projectId:"nature-connect-a1592"
 });
 
-const db = getFirestore(app);
+const db=getFirestore(app);
 
 let user="";
 let currentChatUser="";
@@ -118,9 +183,7 @@ window.login=async ()=>{
 
 // OFFLINE
 window.addEventListener("beforeunload",async ()=>{
- if(user){
-  await updateDoc(doc(db,"users",user),{online:false});
- }
+ if(user) await updateDoc(doc(db,"users",user),{online:false});
 });
 
 // NAV
@@ -162,37 +225,30 @@ window.showChat=()=>{
  feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";
 };
 
-// STORY ADD
+// STORY
 window.addStory=async ()=>{
  let file=document.getElementById("storyFile").files[0];
  if(!file) return;
 
  let reader=new FileReader();
  reader.onload=async ()=>{
-  await addDoc(collection(db,"stories"),{
-   user,image:reader.result,time:Date.now()
-  });
+  await addDoc(collection(db,"stories"),{user,image:reader.result,time:Date.now()});
  };
  reader.readAsDataURL(file);
 };
 
-// STORY LOAD
 function loadStories(){
  onSnapshot(collection(db,"stories"),(snap)=>{
   let html="";
-
   snap.forEach(d=>{
    let s=d.data();
+   if(Date.now()-s.time>86400000) return;
 
-   if(Date.now()-s.time > 86400000) return;
-
-   html+=`
-   <div class="story">
+   html+=`<div class="story">
     <img src="${s.image}">
     <div style="font-size:10px">${s.user}</div>
    </div>`;
   });
-
   stories.innerHTML=html;
  });
 }
@@ -205,15 +261,11 @@ window.addPost=async ()=>{
  if(file){
   let reader=new FileReader();
   reader.onload=async ()=>{
-   await addDoc(collection(db,"posts"),{
-    user,text,image:reader.result,likes:0,comments:[]
-   });
+   await addDoc(collection(db,"posts"),{user,text,image:reader.result,likes:0,comments:[]});
   };
   reader.readAsDataURL(file);
  }else{
-  await addDoc(collection(db,"posts"),{
-   user,text,image:"",likes:0,comments:[]
-  });
+  await addDoc(collection(db,"posts"),{user,text,image:"",likes:0,comments:[]});
  }
 };
 
@@ -231,12 +283,12 @@ window.sendComment=async(id)=>{
  let text=input.value.trim();
  if(!text) return;
 
- let postRef=doc(db,"posts",id);
- let snap=await getDoc(postRef);
+ let ref=doc(db,"posts",id);
+ let snap=await getDoc(ref);
  let comments=snap.data().comments||[];
 
  comments.push(user+": "+text);
- await updateDoc(postRef,{comments});
+ await updateDoc(ref,{comments});
  input.value="";
 };
 
@@ -272,8 +324,8 @@ function load(){
 
   for(const d of snap.docs){
    let p=d.data();
-   let userSnap=await getDoc(doc(db,"users",p.user));
-   let online=userSnap.data()?.online;
+   let u=await getDoc(doc(db,"users",p.user));
+   let online=u.data()?.online;
 
    html+=`
    <div class="card">
@@ -307,22 +359,16 @@ window.openChat=()=>{
 
 window.sendMsg=async ()=>{
  let text=msg.value;
- if(!text || !currentChatUser) return;
+ if(!text||!currentChatUser) return;
 
- await addDoc(collection(db,"messages"),{
-  from:user,to:currentChatUser,text,seen:false
- });
-
+ await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text,seen:false});
  await setDoc(doc(db,"typing",user),{typing:false},{merge:true});
  msg.value="";
 };
 
 window.typing=async ()=>{
  if(!currentChatUser) return;
-
- await setDoc(doc(db,"typing",user),{
-  to:currentChatUser,from:user,typing:true
- });
+ await setDoc(doc(db,"typing",user),{to:currentChatUser,from:user,typing:true});
 };
 
 async function markSeen(){
@@ -343,7 +389,7 @@ function loadChat(){
   snap.forEach(d=>{
    let m=d.data();
 
-   if((m.from===user && m.to===currentChatUser) || (m.from===currentChatUser && m.to===user)){
+   if((m.from===user && m.to===currentChatUser)||(m.from===currentChatUser && m.to===user)){
     let cls=m.from===user?"chat-me":"chat-other";
     let status=m.from===user?(m.seen?"✔️✔️ Seen":"✔️ Sent"):"";
 
@@ -360,14 +406,12 @@ function loadChat(){
 
  onSnapshot(collection(db,"typing"),(snap)=>{
   let tHtml="";
-
   snap.forEach(d=>{
    let t=d.data();
    if(t.to===user && t.from===currentChatUser && t.typing){
     tHtml=`<div class="typing">${currentChatUser} typing...</div>`;
    }
   });
-
   typingBox.innerHTML=tHtml;
  });
 
