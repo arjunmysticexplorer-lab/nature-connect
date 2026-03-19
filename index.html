@@ -6,28 +6,19 @@
 <style>
 body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
 .top{display:flex;justify-content:space-between;padding:12px;background:#0c2b0c;}
+
 button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;margin:2px;}
+
 input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
+
 .card{background:#1b3b1b;padding:15px;border-radius:15px;margin:10px;}
+
 img,video{width:100%;border-radius:10px;margin-top:10px;}
 
-/* 🔥 NEW UI FIX */
-.like-btn{
- background:#00e676;
- padding:6px 12px;
- border-radius:20px;
- margin-left:10px;
-}
+.like-btn{background:#00e676;padding:6px 12px;border-radius:20px;margin-left:10px;}
 
-.comment-box{
- display:flex;
- gap:5px;
- margin-top:10px;
-}
-
-.comment-box input{
- flex:1;
-}
+.comment-box{display:flex;gap:5px;margin-top:10px;}
+.comment-box input{flex:1;}
 </style>
 </head>
 
@@ -78,7 +69,7 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <h2 id="pname"></h2>
 </div>
 
-<!-- NOTIFY -->
+<!-- NOTIFICATIONS -->
 <div id="notify" style="display:none">
 <h2>Notifications</h2>
 <div id="note"></div>
@@ -133,6 +124,20 @@ window.login=async()=>{
  loadCoins();
  loadReels();
 };
+
+// OFFLINE
+window.addEventListener("beforeunload",async()=>{
+ if(user){
+  await updateDoc(doc(db,"users",user),{online:false});
+ }
+});
+
+// NAVIGATION
+window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
+window.showProfile=()=>{feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";reels.style.display="none";pname.innerText=user;}
+window.showNotifications=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";reels.style.display="none";}
+window.showChat=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";reels.style.display="none";}
+window.showReels=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="block";}
 
 // COINS
 async function loadCoins(){
@@ -228,7 +233,7 @@ window.sendComment=async(id)=>{
  input.value="";
 };
 
-// FEED LOAD (🔥 FIXED UI)
+// FEED LOAD
 function load(){
  onSnapshot(collection(db,"posts"),async s=>{
   let html="";
@@ -236,10 +241,14 @@ function load(){
   for(const d of s.docs){
    let p=d.data();
 
+   let uDoc=await getDoc(doc(db,"users",p.user));
+   let online=uDoc.data()?.online;
+
    html+=`
    <div class="card">
-   <b>${p.user}</b>
+   <b>${p.user} ${online?"🟢":"⚫"}</b>
    <p>${p.text||""}</p>
+
    ${p.image?`<img src="${p.image}">`:""}
 
    <div>
@@ -261,6 +270,51 @@ function load(){
   }
 
   posts.innerHTML=html;
+ });
+}
+
+// CHAT
+window.openChat=()=>{currentChatUser=chatUser.value;}
+window.sendMsg=async()=>{
+ await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text:msg.value});
+ msg.value="";
+ loadChat();
+};
+
+function loadChat(){
+ onSnapshot(collection(db,"messages"),s=>{
+  let h="";
+  s.forEach(d=>{
+   let m=d.data();
+   if(m.from===user||m.to===user) h+=`<div>${m.text}</div>`;
+  });
+  chatBox.innerHTML=h;
+ });
+}
+
+// REELS
+window.uploadReel=async()=>{
+ let f=reelFile.files[0];
+ if(!f) return;
+
+ let r=new FileReader();
+ r.onload=async()=>{
+  await addDoc(collection(db,"reels"),{
+   user,
+   video:r.result
+  });
+ };
+ r.readAsDataURL(f);
+};
+
+function loadReels(){
+ onSnapshot(collection(db,"reels"),s=>{
+  let h="";
+  s.forEach(d=>{
+   let r=d.data();
+   h+=`<div class="card"><b>${r.user}</b><video src="${r.video}" controls></video></div>`;
+  });
+  reelBox.innerHTML=h;
  });
 }
 
