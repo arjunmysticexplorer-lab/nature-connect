@@ -20,6 +20,7 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 <button onclick="showFeed()">🏠</button>
 <button onclick="showProfile()">👤</button>
 <button onclick="showNotifications()">🔔</button>
+<button onclick="showChat()">💬</button>
 </div>
 </div>
 
@@ -30,14 +31,15 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 
 <div id="main" style="display:none">
 
+<!-- FEED -->
 <div id="feed">
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
-
 <div id="posts"></div>
 </div>
 
+<!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
 <p id="pcount"></p>
@@ -45,9 +47,23 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 <div id="profilePosts"></div>
 </div>
 
+<!-- NOTIFICATION -->
 <div id="notify" style="display:none">
 <h2>🔔 Notifications</h2>
 <div id="note"></div>
+</div>
+
+<!-- CHAT -->
+<div id="chat" style="display:none">
+<h2>💬 Chat</h2>
+
+<input id="chatUser" placeholder="Enter username">
+<button onclick="openChat()">Open Chat</button>
+
+<div id="chatBox"></div>
+
+<input id="msg" placeholder="Type message">
+<button onclick="sendMsg()">Send</button>
 </div>
 
 </div>
@@ -65,6 +81,7 @@ const app = initializeApp({
 const db = getFirestore(app);
 
 let user="";
+let currentChatUser="";
 
 // LOGIN
 window.login = async ()=>{
@@ -82,17 +99,19 @@ window.login = async ()=>{
  load();
 };
 
-// NAVIGATION
+// NAV
 window.showFeed=()=>{
  feed.style.display="block";
  profile.style.display="none";
  notify.style.display="none";
+ chat.style.display="none";
 };
 
 window.showProfile=async ()=>{
  feed.style.display="none";
  profile.style.display="block";
  notify.style.display="none";
+ chat.style.display="none";
 
  pname.innerText=user;
 
@@ -105,13 +124,7 @@ window.showProfile=async ()=>{
 
   if(p.user===user){
     count++;
-
-    html+=`
-    <div class="card">
-      <p>${p.text}</p>
-      ${p.image?`<img src="${p.image}" width="100%">`:""}
-    </div>
-    `;
+    html+=`<div class="card">${p.text}</div>`;
   }
  });
 
@@ -120,13 +133,14 @@ window.showProfile=async ()=>{
  let u=await getDoc(doc(db,"users",user));
  followers.innerText="Followers: "+(u.data()?.followers?.length||0);
 
- document.getElementById("profilePosts").innerHTML = html;
+ profilePosts.innerHTML=html;
 };
 
 window.showNotifications=async ()=>{
  feed.style.display="none";
  profile.style.display="none";
  notify.style.display="block";
+ chat.style.display="none";
 
  let snap=await getDocs(collection(db,"notifications"));
  let html="";
@@ -138,7 +152,14 @@ window.showNotifications=async ()=>{
   }
  });
 
- note.innerHTML=html || "No notifications";
+ note.innerHTML=html;
+};
+
+window.showChat=()=>{
+ feed.style.display="none";
+ profile.style.display="none";
+ notify.style.display="none";
+ chat.style.display="block";
 };
 
 // POST
@@ -165,9 +186,7 @@ window.addPost=async ()=>{
 
 // LIKE
 window.like=async(id,likes,owner)=>{
- await updateDoc(doc(db,"posts",id),{
-  likes:likes+1
- });
+ await updateDoc(doc(db,"posts",id),{likes:likes+1});
 
  if(owner!==user){
   await addDoc(collection(db,"notifications"),{
@@ -183,23 +202,18 @@ window.like=async(id,likes,owner)=>{
 window.sendComment=async(id,owner)=>{
  let input=document.getElementById("c-"+id);
  let text=input.value.trim();
-
  if(!text) return;
 
  let snap=await getDocs(collection(db,"posts"));
  let comments=[];
 
  snap.forEach(d=>{
-  if(d.id===id){
-    comments=d.data().comments||[];
-  }
+  if(d.id===id) comments=d.data().comments||[];
  });
 
  comments.push(user+": "+text);
 
- await updateDoc(doc(db,"posts",id),{
-  comments
- });
+ await updateDoc(doc(db,"posts",id),{comments});
 
  if(owner!==user){
   await addDoc(collection(db,"notifications"),{
@@ -239,9 +253,8 @@ window.followUser=async(target)=>{
  load();
 };
 
-// 🔥 SMART FEED LOAD
+// SMART FEED
 async function load(){
-
  let userDoc = await getDoc(doc(db,"users",user));
  let following = userDoc.data()?.following || [];
 
@@ -251,7 +264,6 @@ async function load(){
  snap.forEach(d=>{
   let p=d.data();
 
-  // 🔥 FILTER
   if(p.user !== user && !following.includes(p.user)) return;
 
   html+=`
@@ -266,18 +278,53 @@ async function load(){
     ❤️ ${p.likes}
     <button onclick="like('${d.id}',${p.likes},'${p.user}')">Like</button>
 
-    <div>
-      ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
-    </div>
+    <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
 
     <input id="c-${d.id}" placeholder="Write comment">
     <button onclick="sendComment('${d.id}','${p.user}')">Send</button>
-
   </div>
   `;
  });
 
  document.getElementById("posts").innerHTML=html;
+}
+
+// CHAT
+window.openChat=()=>{
+ currentChatUser=document.getElementById("chatUser").value;
+ loadChat();
+};
+
+window.sendMsg=async ()=>{
+ let text=document.getElementById("msg").value;
+ if(!text || !currentChatUser) return;
+
+ await addDoc(collection(db,"messages"),{
+  from:user,
+  to:currentChatUser,
+  text
+ });
+
+ document.getElementById("msg").value="";
+ loadChat();
+};
+
+async function loadChat(){
+ let snap=await getDocs(collection(db,"messages"));
+ let html="";
+
+ snap.forEach(d=>{
+  let m=d.data();
+
+  if(
+    (m.from===user && m.to===currentChatUser) ||
+    (m.from===currentChatUser && m.to===user)
+  ){
+    html+=`<p><b>${m.from}:</b> ${m.text}</p>`;
+  }
+ });
+
+ document.getElementById("chatBox").innerHTML=html;
 }
 
 </script>
