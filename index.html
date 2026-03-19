@@ -10,15 +10,13 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
 .card{background:#1b3b1b;padding:15px;border-radius:15px;margin:10px;}
 img{width:100%;border-radius:10px;margin-top:10px;}
-
 .storyBar{display:flex;overflow:auto;padding:10px;}
 .story img{width:60px;height:60px;border-radius:50%;}
-
 .chat-me{background:#00c853;padding:8px;margin:5px;border-radius:10px;text-align:right;}
 .chat-other{background:#1b3b1b;padding:8px;margin:5px;border-radius:10px;}
-
 .fullStory{position:fixed;top:0;left:0;width:100%;height:100%;background:black;display:none;justify-content:center;align-items:center;z-index:100;}
 .fullStory img{width:100%;height:80%;}
+.dp{width:30px;height:30px;border-radius:50%;}
 </style>
 </head>
 
@@ -46,7 +44,14 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 
 <div id="main" style="display:none">
 
+<!-- FEED -->
 <div id="feed">
+
+<div class="card">
+💰 QNC Balance: <span id="coinBal">0</span><br><br>
+<button onclick="startMining()">⛏️ Start Mining</button>
+</div>
+
 <div id="stories"></div>
 <input type="file" id="storyFile">
 <button onclick="addStory()">Story</button>
@@ -58,6 +63,7 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <div id="posts"></div>
 </div>
 
+<!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
 <input type="file" id="dpFile">
@@ -65,10 +71,12 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <img id="myDP" width="80">
 </div>
 
+<!-- NOTIFY -->
 <div id="notify" style="display:none">
 <div id="note"></div>
 </div>
 
+<!-- CHAT -->
 <div id="chat" style="display:none">
 <input id="chatUser">
 <button onclick="openChat()">Open</button>
@@ -77,6 +85,7 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="sendMsg()">Send</button>
 </div>
 
+<!-- REELS -->
 <div id="reels" style="display:none">
 <input type="file" id="reelFile">
 <button onclick="uploadReel()">Upload</button>
@@ -98,17 +107,48 @@ const app=initializeApp({
 
 const db=getFirestore(app);
 
-let user="",currentChatUser="",stories=[],i=0;
+let user="",stories=[],i=0,currentChatUser="";
 
+// LOGIN
 window.login=async()=>{
  user=username.value;
- await setDoc(doc(db,"users",user),{}, {merge:true});
+
+ await setDoc(doc(db,"users",user),{
+  coins:0,
+  lastMine:0
+ },{merge:true});
+
  loginBox.style.display="none";
  main.style.display="block";
- load();loadStories();loadReels();
+
+ load();loadStories();loadReels();loadCoins();
 };
 
-// NAV FIX
+// COINS LOAD
+async function loadCoins(){
+ let u=await getDoc(doc(db,"users",user));
+ coinBal.innerText=u.data()?.coins||0;
+}
+
+// MINING
+window.startMining=async()=>{
+ let ref=doc(db,"users",user);
+ let data=(await getDoc(ref)).data();
+
+ let now=Date.now();
+ if(now-(data.lastMine||0)<86400000){
+  alert("Come after 24h");
+  return;
+ }
+
+ let coins=(data.coins||0)+10;
+
+ await updateDoc(ref,{coins,lastMine:now});
+ loadCoins();
+ alert("⛏️ +10 QNC");
+};
+
+// NAV
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
 window.showProfile=()=>{feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
 window.showNotifications=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";reels.style.display="none";}
@@ -119,15 +159,18 @@ window.showReels=()=>{feed.style.display="none";profile.style.display="none";not
 window.uploadDP=async()=>{
  let f=dpFile.files[0]; if(!f)return;
  let r=new FileReader();
- r.onload=async()=>{await updateDoc(doc(db,"users",user),{dp:r.result}); myDP.src=r.result;}
+ r.onload=async()=>{
+  await updateDoc(doc(db,"users",user),{dp:r.result});
+  myDP.src=r.result;
+ };
  r.readAsDataURL(f);
 };
 
 // STORY
 window.addStory=async()=>{
- let f=storyFile.files[0]; if(!f)return;
+ let f=storyFile.files[0];
  let r=new FileReader();
- r.onload=async()=>{await addDoc(collection(db,"stories"),{user,image:r.result,time:Date.now()});}
+ r.onload=async()=>await addDoc(collection(db,"stories"),{user,image:r.result,time:Date.now()});
  r.readAsDataURL(f);
 };
 
@@ -135,7 +178,8 @@ function loadStories(){
  onSnapshot(collection(db,"stories"),s=>{
   let h="";stories=[];
   s.forEach(d=>{
-   let x=d.data(); if(Date.now()-x.time>86400000)return;
+   let x=d.data();
+   if(Date.now()-x.time>86400000)return;
    stories.push(x);
    h+=`<img src="${x.image}" width="50" onclick="openStory(${stories.length-1})">`;
   });
@@ -146,25 +190,62 @@ function loadStories(){
 window.openStory=(x)=>{i=x;fullStory.style.display="flex";storyImg.src=stories[i].image;}
 window.nextStory=()=>{i++; if(i>=stories.length)fullStory.style.display="none"; else storyImg.src=stories[i].image;}
 
-// POST
+// POST + REWARD
 window.addPost=async()=>{
  let t=postText.value;
  let f=file.files[0];
+
  if(f){
   let r=new FileReader();
   r.onload=async()=>await addDoc(collection(db,"posts"),{user,text:t,image:r.result});
   r.readAsDataURL(f);
- }else await addDoc(collection(db,"posts"),{user,text:t});
+ }else{
+  await addDoc(collection(db,"posts"),{user,text:t});
+ }
+
+ reward(10);
 };
 
+// LIKE + REWARD
+window.like=async(id,likes)=>{
+ await updateDoc(doc(db,"posts",id),{likes:likes+1});
+ reward(1);
+};
+
+// COMMENT + REWARD
+window.sendComment=async(id)=>{
+ let input=document.getElementById("c-"+id);
+ let text=input.value;
+
+ let ref=doc(db,"posts",id);
+ let snap=await getDoc(ref);
+ let comments=snap.data().comments||[];
+
+ comments.push(user+": "+text);
+ await updateDoc(ref,{comments});
+
+ reward(2);
+};
+
+// REWARD FUNCTION
+async function reward(val){
+ let ref=doc(db,"users",user);
+ let data=(await getDoc(ref)).data();
+ await updateDoc(ref,{coins:(data.coins||0)+val});
+ loadCoins();
+}
+
+// FEED
 function load(){
  onSnapshot(collection(db,"posts"),async s=>{
   let h="";
   for(const d of s.docs){
    let p=d.data();
-   let u=await getDoc(doc(db,"users",p.user));
-   let dp=u.data()?.dp||"";
-   h+=`<div class="card"><b><img src="${dp}" width="30">${p.user}</b><p>${p.text}</p>${p.image?`<img src="${p.image}">`:""}</div>`;
+   h+=`<div class="card"><b>${p.user}</b><p>${p.text}</p>${p.image?`<img src="${p.image}">`:""}
+   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
+   <input id="c-${d.id}">
+   <button onclick="sendComment('${d.id}')">Comment</button>
+   </div>`;
   }
   posts.innerHTML=h;
  });
@@ -179,9 +260,7 @@ function loadChat(){
   let h="";
   s.forEach(d=>{
    let m=d.data();
-   if(m.from===user||m.to===user){
-    h+=`<div>${m.text}</div>`;
-   }
+   if(m.from===user||m.to===user) h+=`<div>${m.text}</div>`;
   });
   chatBox.innerHTML=h;
  });
@@ -189,7 +268,7 @@ function loadChat(){
 
 // REELS
 window.uploadReel=async()=>{
- let f=reelFile.files[0]; if(!f)return;
+ let f=reelFile.files[0];
  let r=new FileReader();
  r.onload=async()=>await addDoc(collection(db,"reels"),{user,video:r.result});
  r.readAsDataURL(f);
