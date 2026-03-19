@@ -41,6 +41,14 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="startMining()">⛏️ Start Mining</button>
 </div>
 
+<!-- WALLET -->
+<div class="card">
+<h3>💰 QNC Wallet</h3>
+<input id="sendUser" placeholder="Send to user">
+<input id="sendAmount" type="number" placeholder="Amount">
+<button onclick="sendCoins()">Send QNC</button>
+</div>
+
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
@@ -51,8 +59,6 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
-<p id="pcount"></p>
-<p id="followers"></p>
 </div>
 
 <!-- NOTIFY -->
@@ -82,7 +88,7 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <script type="module">
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import {getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot}
+import {getFirestore,collection,addDoc,doc,setDoc,getDoc,updateDoc,onSnapshot}
 from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app=initializeApp({
@@ -114,7 +120,7 @@ window.login=async()=>{
 };
 
 // OFFLINE
-window.addEventListener("beforeunload", async ()=>{
+window.addEventListener("beforeunload",async()=>{
  if(user){
   await updateDoc(doc(db,"users",user),{online:false});
  }
@@ -131,19 +137,49 @@ window.startMining=async()=>{
  let ref=doc(db,"users",user);
  let data=(await getDoc(ref)).data();
 
- let now=Date.now();
- if(now-(data.lastMine||0)<86400000){
+ if(Date.now()-(data.lastMine||0)<86400000){
   alert("Come after 24h");
   return;
  }
 
  await updateDoc(ref,{
   coins:(data.coins||0)+10,
-  lastMine:now
+  lastMine:Date.now()
  });
 
  loadCoins();
- alert("+10 QNC");
+};
+
+// WALLET SEND
+window.sendCoins=async()=>{
+ let toUser=sendUser.value.trim();
+ let amount=parseInt(sendAmount.value);
+
+ if(!toUser||!amount) return alert("Enter details");
+
+ let sRef=doc(db,"users",user);
+ let rRef=doc(db,"users",toUser);
+
+ let sData=(await getDoc(sRef)).data();
+
+ if((sData.coins||0)<amount){
+  alert("Not enough QNC");
+  return;
+ }
+
+ await updateDoc(sRef,{coins:sData.coins-amount});
+
+ let rSnap=await getDoc(rRef);
+ if(rSnap.exists()){
+  let rData=rSnap.data();
+  await updateDoc(rRef,{coins:(rData.coins||0)+amount});
+ }else{
+  alert("User not found");
+  return;
+ }
+
+ loadCoins();
+ alert("Sent!");
 };
 
 // NAV
@@ -202,11 +238,7 @@ window.sendComment=async(id)=>{
 async function reward(val){
  let ref=doc(db,"users",user);
  let data=(await getDoc(ref)).data();
-
- await updateDoc(ref,{
-  coins:(data.coins||0)+val
- });
-
+ await updateDoc(ref,{coins:(data.coins||0)+val});
  loadCoins();
 }
 
@@ -217,31 +249,21 @@ function load(){
 
   for(const d of s.docs){
    let p=d.data();
-
-   let uDoc = await getDoc(doc(db,"users",p.user));
-   let online = uDoc.data()?.online;
+   let uDoc=await getDoc(doc(db,"users",p.user));
+   let online=uDoc.data()?.online;
 
    html+=`
    <div class="card">
+   <b>${p.user} ${online?"🟢":"⚫"}</b>
+   <p>${p.text||""}</p>
+   ${p.image?`<img src="${p.image}">`:""}
+   ❤️ ${p.likes||0}
+   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
 
-    <b>${p.user} ${online?"🟢":"⚫"}</b>
+   <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
 
-    <p>${p.text||""}</p>
-
-    ${p.image?`<img src="${p.image}">`:""}
-
-    <br>
-
-    ❤️ ${p.likes||0}
-    <button onclick="like('${d.id}',${p.likes||0})">Like</button>
-
-    <div>
-     ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
-    </div>
-
-    <input id="c-${d.id}" placeholder="Write comment">
-    <button onclick="sendComment('${d.id}')">Send</button>
-
+   <input id="c-${d.id}">
+   <button onclick="sendComment('${d.id}')">Send</button>
    </div>
    `;
   }
@@ -253,12 +275,7 @@ function load(){
 // CHAT
 window.openChat=()=>{currentChatUser=chatUser.value;}
 window.sendMsg=async()=>{
- if(!msg.value) return;
-
- await addDoc(collection(db,"messages"),{
-  from:user,to:currentChatUser,text:msg.value
- });
-
+ await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text:msg.value});
  msg.value="";
  loadChat();
 };
@@ -268,9 +285,7 @@ function loadChat(){
   let h="";
   s.forEach(d=>{
    let m=d.data();
-   if(m.from===user||m.to===user){
-    h+=`<div>${m.text}</div>`;
-   }
+   if(m.from===user||m.to===user) h+=`<div>${m.text}</div>`;
   });
   chatBox.innerHTML=h;
  });
@@ -296,13 +311,7 @@ function loadReels(){
   let h="";
   s.forEach(d=>{
    let r=d.data();
-
-   h+=`
-   <div class="card">
-    <b>${r.user}</b>
-    <video src="${r.video}" controls></video>
-   </div>
-   `;
+   h+=`<div class="card"><b>${r.user}</b><video src="${r.video}" controls></video></div>`;
   });
   reelBox.innerHTML=h;
  });
