@@ -12,6 +12,7 @@ button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white
 img{width:100%;border-radius:10px;margin-top:10px;}
 .chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
 .chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
+.typing{font-size:12px;color:lightgreen;margin:5px;}
 </style>
 
 </head>
@@ -58,8 +59,11 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <h2>💬 Chat</h2>
 <input id="chatUser" placeholder="Enter username">
 <button onclick="openChat()">Open</button>
+
 <div id="chatBox"></div>
-<input id="msg" placeholder="Type message">
+<div id="typingBox"></div>
+
+<input id="msg" placeholder="Type message" oninput="typing()">
 <button onclick="sendMsg()">Send</button>
 </div>
 
@@ -92,13 +96,13 @@ let currentChatUser="";
 
 // LOGIN
 window.login=async ()=>{
- user=document.getElementById("username").value.trim();
+ user=username.value.trim();
  if(!user) return alert("Enter name");
 
  await setDoc(doc(db,"users",user),{
   followers:[],
   following:[],
-  online:true   // 🟢
+  online:true
  },{merge:true});
 
  loginBox.style.display="none";
@@ -107,32 +111,21 @@ window.login=async ()=>{
  load();
 };
 
-// AUTO OFFLINE
-window.addEventListener("beforeunload", async ()=>{
+// OFFLINE
+window.addEventListener("beforeunload",async ()=>{
  if(user){
   await updateDoc(doc(db,"users",user),{online:false});
  }
 });
 
 // NAV
-window.showFeed=()=>{
- feed.style.display="block";
- profile.style.display="none";
- notify.style.display="none";
- chat.style.display="none";
-};
-
+window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";};
 window.showProfile=async ()=>{
- feed.style.display="none";
- profile.style.display="block";
- notify.style.display="none";
- chat.style.display="none";
-
+ feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";
  pname.innerText=user;
 
  let snap=await getDocs(collection(db,"posts"));
- let count=0;
- let html="";
+ let html="";let count=0;
 
  snap.forEach(d=>{
   let p=d.data();
@@ -151,10 +144,7 @@ window.showProfile=async ()=>{
 };
 
 window.showNotifications=()=>{
- feed.style.display="none";
- profile.style.display="none";
- notify.style.display="block";
- chat.style.display="none";
+ feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";
 
  onSnapshot(collection(db,"notifications"),(snap)=>{
   let html="";
@@ -169,15 +159,12 @@ window.showNotifications=()=>{
 };
 
 window.showChat=()=>{
- feed.style.display="none";
- profile.style.display="none";
- notify.style.display="none";
- chat.style.display="block";
+ feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";
 };
 
 // POST
 window.addPost=async ()=>{
- let text=document.getElementById("postText").value;
+ let text=postText.value;
  let file=document.getElementById("file").files[0];
 
  if(file){
@@ -214,8 +201,8 @@ window.sendComment=async(id)=>{
  if(!text) return;
 
  let postRef=doc(db,"posts",id);
- let postSnap=await getDoc(postRef);
- let comments=postSnap.data().comments||[];
+ let snap=await getDoc(postRef);
+ let comments=snap.data().comments||[];
 
  comments.push(user+": "+text);
 
@@ -248,22 +235,20 @@ window.followUser=async(target)=>{
  await updateDoc(tRef,{followers});
 };
 
-// 🔥 REAL-TIME FEED + ONLINE STATUS
+// 🔥 FEED
 function load(){
-
  onSnapshot(collection(db,"posts"), async (snap)=>{
-
   let html="";
 
   for(const d of snap.docs){
    let p=d.data();
 
    let userSnap=await getDoc(doc(db,"users",p.user));
-   let isOnline=userSnap.data()?.online;
+   let online=userSnap.data()?.online;
 
    html+=`
    <div class="card">
-    <b>${p.user} ${isOnline ? "🟢" : "⚫"}</b>
+    <b>${p.user} ${online?"🟢":"⚫"}</b>
 
     ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
 
@@ -277,59 +262,75 @@ function load(){
 
     <input id="c-${d.id}">
     <button onclick="sendComment('${d.id}')">Send</button>
-   </div>
-   `;
+   </div>`;
   }
 
   posts.innerHTML=html;
-
  });
-
 }
 
 // CHAT
 window.openChat=()=>{
- currentChatUser=document.getElementById("chatUser").value;
+ currentChatUser=chatUser.value;
  loadChat();
 };
 
 window.sendMsg=async ()=>{
- let text=document.getElementById("msg").value;
+ let text=msg.value;
  if(!text || !currentChatUser) return;
 
  await addDoc(collection(db,"messages"),{
-  from:user,
-  to:currentChatUser,
-  text
+  from:user,to:currentChatUser,text
  });
 
- document.getElementById("msg").value="";
+ await setDoc(doc(db,"typing",user),{typing:false},{merge:true});
+
+ msg.value="";
+};
+
+window.typing=async ()=>{
+ if(!currentChatUser) return;
+
+ await setDoc(doc(db,"typing",user),{
+  to:currentChatUser,
+  from:user,
+  typing:true
+ });
 };
 
 function loadChat(){
 
- onSnapshot(collection(db,"messages"), async (snap)=>{
-
+ onSnapshot(collection(db,"messages"),(snap)=>{
   let html="";
 
-  for(const d of snap.docs){
+  snap.forEach(d=>{
    let m=d.data();
 
    if(
     (m.from===user && m.to===currentChatUser) ||
     (m.from===currentChatUser && m.to===user)
    ){
-    let userSnap=await getDoc(doc(db,"users",m.from));
-    let isOnline=userSnap.data()?.online;
-
     let cls=m.from===user?"chat-me":"chat-other";
-
-    html+=`<div class="${cls}">${m.text} ${isOnline?"🟢":""}</div>`;
+    html+=`<div class="${cls}">${m.text}</div>`;
    }
-  }
+  });
 
   chatBox.innerHTML=html;
+ });
 
+ // typing
+ onSnapshot(collection(db,"typing"),(snap)=>{
+  let tHtml="";
+
+  snap.forEach(d=>{
+   let t=d.data();
+
+   if(t.to===user && t.from===currentChatUser && t.typing){
+    tHtml=`<div class="typing">${currentChatUser} typing...</div>`;
+   }
+  });
+
+  typingBox.innerHTML=tHtml;
  });
 
 }
