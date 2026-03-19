@@ -4,26 +4,21 @@
 <title>Nature Connect</title>
 
 <style>
-body{margin:0;background:linear-gradient(180deg,#041404,#071a07);color:white;font-family:sans-serif;}
-.top{display:flex;justify-content:space-between;padding:15px;background:#0c2b0c;}
+body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
+.top{display:flex;justify-content:space-between;padding:12px;background:#0c2b0c;}
 button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
 input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
 .card{background:#1b3b1b;padding:15px;border-radius:15px;margin:10px;}
 img{width:100%;border-radius:10px;margin-top:10px;}
 
 .storyBar{display:flex;overflow:auto;padding:10px;}
-.story{margin-right:10px;text-align:center;}
-.story img{width:65px;height:65px;border-radius:50%;border:3px solid #00e676;}
+.story img{width:60px;height:60px;border-radius:50%;}
 
-.chat-me{background:#00c853;padding:10px;border-radius:10px;margin:5px;text-align:right;}
-.chat-other{background:#1b3b1b;padding:10px;border-radius:10px;margin:5px;}
-.status{font-size:10px;color:lightgray;}
-.typing{font-size:12px;color:#00e676;}
+.chat-me{background:#00c853;padding:8px;margin:5px;border-radius:10px;text-align:right;}
+.chat-other{background:#1b3b1b;padding:8px;margin:5px;border-radius:10px;}
 
-.fullStory{position:fixed;top:0;left:0;width:100%;height:100%;background:black;display:none;justify-content:center;align-items:center;flex-direction:column;z-index:100;}
-.fullStory img{width:100%;height:80%;object-fit:contain;}
-.closeBtn{position:absolute;top:20px;right:20px;}
-.dp{width:30px;height:30px;border-radius:50%;vertical-align:middle;margin-right:5px;}
+.fullStory{position:fixed;top:0;left:0;width:100%;height:100%;background:black;display:none;justify-content:center;align-items:center;z-index:100;}
+.fullStory img{width:100%;height:80%;}
 </style>
 </head>
 
@@ -36,68 +31,56 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="showProfile()">👤</button>
 <button onclick="showNotifications()">🔔</button>
 <button onclick="showChat()">💬</button>
+<button onclick="showReels()">🎥</button>
 </div>
 </div>
 
-<!-- STORY FULL -->
 <div id="fullStory" class="fullStory" onclick="nextStory()">
-<button class="closeBtn" onclick="closeStory(event)">❌</button>
 <img id="storyImg">
 </div>
 
-<!-- LOGIN -->
 <div id="loginBox">
-<input id="username" placeholder="Enter name">
+<input id="username">
 <button onclick="login()">Login</button>
 </div>
 
 <div id="main" style="display:none">
 
-<!-- FEED -->
 <div id="feed">
-
-<div class="storyBar" id="stories"></div>
+<div id="stories"></div>
 <input type="file" id="storyFile">
-<button onclick="addStory()">Add Story</button>
+<button onclick="addStory()">Story</button>
 
-<input id="postText" placeholder="Write post">
+<input id="postText">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
 
 <div id="posts"></div>
 </div>
 
-<!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
-
 <input type="file" id="dpFile">
 <button onclick="uploadDP()">Upload DP</button>
-<br>
-<img id="myDP" style="width:80px;height:80px;border-radius:50%">
-
-<p id="pcount"></p>
-<p id="followers"></p>
-<div id="profilePosts"></div>
+<img id="myDP" width="80">
 </div>
 
-<!-- NOTIFICATION -->
 <div id="notify" style="display:none">
-<h2>🔔 Notifications</h2>
 <div id="note"></div>
 </div>
 
-<!-- CHAT -->
 <div id="chat" style="display:none">
-<h2>💬 Chat</h2>
-<input id="chatUser" placeholder="Enter username">
+<input id="chatUser">
 <button onclick="openChat()">Open</button>
-
 <div id="chatBox"></div>
-<div id="typingBox"></div>
-
-<input id="msg" placeholder="Type message" oninput="typing()">
+<input id="msg">
 <button onclick="sendMsg()">Send</button>
+</div>
+
+<div id="reels" style="display:none">
+<input type="file" id="reelFile">
+<button onclick="uploadReel()">Upload</button>
+<div id="reelBox"></div>
 </div>
 
 </div>
@@ -105,9 +88,8 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <script type="module">
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import {
-getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot
-} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import {getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot}
+from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
@@ -116,267 +98,111 @@ const app=initializeApp({
 
 const db=getFirestore(app);
 
-let user="";
-let currentChatUser="";
-let storyList=[];
-let currentIndex=0;
+let user="",currentChatUser="",stories=[],i=0;
 
-// LOGIN
-window.login=async ()=>{
- user=username.value.trim();
- if(!user) return alert("Enter name");
-
- await setDoc(doc(db,"users",user),{
-  followers:[],following:[],online:true
- },{merge:true});
-
+window.login=async()=>{
+ user=username.value;
+ await setDoc(doc(db,"users",user),{}, {merge:true});
  loginBox.style.display="none";
  main.style.display="block";
-
- load();
- loadStories();
+ load();loadStories();loadReels();
 };
 
-// DP UPLOAD
-window.uploadDP=async ()=>{
- let file=dpFile.files[0];
- if(!file) return alert("Select image");
+// NAV FIX
+window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
+window.showProfile=()=>{feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
+window.showNotifications=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";reels.style.display="none";}
+window.showChat=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";reels.style.display="none";}
+window.showReels=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="block";}
 
- let reader=new FileReader();
- reader.onload=async ()=>{
-  await updateDoc(doc(db,"users",user),{dp:reader.result});
-  myDP.src=reader.result;
- };
- reader.readAsDataURL(file);
+// DP
+window.uploadDP=async()=>{
+ let f=dpFile.files[0]; if(!f)return;
+ let r=new FileReader();
+ r.onload=async()=>{await updateDoc(doc(db,"users",user),{dp:r.result}); myDP.src=r.result;}
+ r.readAsDataURL(f);
 };
 
 // STORY
-window.addStory=async ()=>{
- let file=storyFile.files[0];
- if(!file) return;
-
- let reader=new FileReader();
- reader.onload=async ()=>{
-  await addDoc(collection(db,"stories"),{user,image:reader.result,time:Date.now()});
- };
- reader.readAsDataURL(file);
+window.addStory=async()=>{
+ let f=storyFile.files[0]; if(!f)return;
+ let r=new FileReader();
+ r.onload=async()=>{await addDoc(collection(db,"stories"),{user,image:r.result,time:Date.now()});}
+ r.readAsDataURL(f);
 };
 
 function loadStories(){
- onSnapshot(collection(db,"stories"),(snap)=>{
-  let html="";storyList=[];
-  snap.forEach(d=>{
-   let s=d.data();
-   if(Date.now()-s.time>86400000) return;
-
-   storyList.push(s);
-
-   html+=`<div class="story" onclick="openStory(${storyList.length-1})">
-    <img src="${s.image}">
-    <div style="font-size:10px">${s.user}</div>
-   </div>`;
+ onSnapshot(collection(db,"stories"),s=>{
+  let h="";stories=[];
+  s.forEach(d=>{
+   let x=d.data(); if(Date.now()-x.time>86400000)return;
+   stories.push(x);
+   h+=`<img src="${x.image}" width="50" onclick="openStory(${stories.length-1})">`;
   });
-  stories.innerHTML=html;
+  storiesDiv.innerHTML=h;
  });
 }
 
-// STORY FULL
-window.openStory=(i)=>{
- currentIndex=i;
- fullStory.style.display="flex";
- showStory();
-};
-
-function showStory(){
- storyImg.src=storyList[currentIndex].image;
-}
-
-window.nextStory=()=>{
- currentIndex++;
- if(currentIndex>=storyList.length) closeStory();
- else showStory();
-};
-
-window.closeStory=(e)=>{
- if(e)e.stopPropagation();
- fullStory.style.display="none";
-};
+window.openStory=(x)=>{i=x;fullStory.style.display="flex";storyImg.src=stories[i].image;}
+window.nextStory=()=>{i++; if(i>=stories.length)fullStory.style.display="none"; else storyImg.src=stories[i].image;}
 
 // POST
-window.addPost=async ()=>{
- let text=postText.value;
- let file=document.getElementById("file").files[0];
-
- if(file){
-  let reader=new FileReader();
-  reader.onload=async ()=>{
-   await addDoc(collection(db,"posts"),{user,text,image:reader.result,likes:0,comments:[]});
-  };
-  reader.readAsDataURL(file);
- }else{
-  await addDoc(collection(db,"posts"),{user,text,image:"",likes:0,comments:[]});
- }
+window.addPost=async()=>{
+ let t=postText.value;
+ let f=file.files[0];
+ if(f){
+  let r=new FileReader();
+  r.onload=async()=>await addDoc(collection(db,"posts"),{user,text:t,image:r.result});
+  r.readAsDataURL(f);
+ }else await addDoc(collection(db,"posts"),{user,text:t});
 };
 
-// LIKE
-window.like=async(id,likes,owner)=>{
- await updateDoc(doc(db,"posts",id),{likes:likes+1});
-
- if(owner!==user){
-  await addDoc(collection(db,"notifications"),{
-   text:user+" liked your post",
-   to:owner
-  });
- }
-};
-
-// COMMENT
-window.sendComment=async(id,owner)=>{
- let input=document.getElementById("c-"+id);
- let text=input.value.trim();
- if(!text) return;
-
- let snap=await getDoc(doc(db,"posts",id));
- let comments=snap.data().comments||[];
-
- comments.push(user+": "+text);
-
- await updateDoc(doc(db,"posts",id),{comments});
-
- if(owner!==user){
-  await addDoc(collection(db,"notifications"),{
-   text:user+" commented on your post",
-   to:owner
-  });
- }
-
- input.value="";
-};
-
-// FOLLOW
-window.followUser=async(target)=>{
- if(target===user) return;
-
- let myRef=doc(db,"users",user);
- let tRef=doc(db,"users",target);
-
- let my=(await getDoc(myRef)).data();
- let t=(await getDoc(tRef)).data();
-
- let following=my.following||[];
- let followers=t.followers||[];
-
- if(following.includes(target)){
-  following=following.filter(u=>u!==target);
-  followers=followers.filter(u=>u!==user);
- }else{
-  following.push(target);
-  followers.push(user);
- }
-
- await updateDoc(myRef,{following});
- await updateDoc(tRef,{followers});
-};
-
-// FEED
 function load(){
- onSnapshot(collection(db,"posts"), async (snap)=>{
-  let html="";
-
-  for(const d of snap.docs){
+ onSnapshot(collection(db,"posts"),async s=>{
+  let h="";
+  for(const d of s.docs){
    let p=d.data();
    let u=await getDoc(doc(db,"users",p.user));
-   let dp=u.data()?.dp || "";
-
-   html+=`
-   <div class="card">
-    <b>
-     <img src="${dp}" class="dp">
-     ${p.user}
-    </b>
-
-    ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
-
-    <p>${p.text}</p>
-    ${p.image?`<img src="${p.image}">`:""}
-
-    ❤️ ${p.likes}
-    <button onclick="like('${d.id}',${p.likes},'${p.user}')">Like</button>
-
-    <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
-
-    <input id="c-${d.id}">
-    <button onclick="sendComment('${d.id}','${p.user}')">Send</button>
-   </div>`;
+   let dp=u.data()?.dp||"";
+   h+=`<div class="card"><b><img src="${dp}" width="30">${p.user}</b><p>${p.text}</p>${p.image?`<img src="${p.image}">`:""}</div>`;
   }
-
-  posts.innerHTML=html;
+  posts.innerHTML=h;
  });
 }
 
 // CHAT
-window.openChat=()=>{
- currentChatUser=chatUser.value;
- loadChat();
- markSeen();
-};
+window.openChat=()=>{currentChatUser=chatUser.value;loadChat();}
+window.sendMsg=async()=>{await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text:msg.value});msg.value="";}
 
-window.sendMsg=async ()=>{
- let text=msg.value;
- if(!text||!currentChatUser) return;
-
- await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text,seen:false});
- msg.value="";
-};
-
-window.typing=async ()=>{
- if(!currentChatUser) return;
-
- await setDoc(doc(db,"typing",user),{
-  to:currentChatUser,from:user,typing:true
- });
-};
-
-async function markSeen(){
- let snap=await getDocs(collection(db,"messages"));
- snap.forEach(async d=>{
-  let m=d.data();
-  if(m.to===user && m.from===currentChatUser && !m.seen){
-    await updateDoc(doc(db,"messages",d.id),{seen:true});
-  }
+function loadChat(){
+ onSnapshot(collection(db,"messages"),s=>{
+  let h="";
+  s.forEach(d=>{
+   let m=d.data();
+   if(m.from===user||m.to===user){
+    h+=`<div>${m.text}</div>`;
+   }
+  });
+  chatBox.innerHTML=h;
  });
 }
 
-function loadChat(){
- onSnapshot(collection(db,"messages"),(snap)=>{
-  let html="";
-  snap.forEach(d=>{
-   let m=d.data();
+// REELS
+window.uploadReel=async()=>{
+ let f=reelFile.files[0]; if(!f)return;
+ let r=new FileReader();
+ r.onload=async()=>await addDoc(collection(db,"reels"),{user,video:r.result});
+ r.readAsDataURL(f);
+};
 
-   if((m.from===user && m.to===currentChatUser)||(m.from===currentChatUser && m.to===user)){
-    let cls=m.from===user?"chat-me":"chat-other";
-    let status=m.from===user?(m.seen?"✔️✔️ Seen":"✔️ Sent"):"";
-
-    html+=`
-    <div class="${cls}">
-     ${m.text}
-     <div class="status">${status}</div>
-    </div>`;
-   }
+function loadReels(){
+ onSnapshot(collection(db,"reels"),s=>{
+  let h="";
+  s.forEach(d=>{
+   let r=d.data();
+   h+=`<video src="${r.video}" controls style="width:100%"></video>`;
   });
-
-  chatBox.innerHTML=html;
- });
-
- onSnapshot(collection(db,"typing"),(snap)=>{
-  let tHtml="";
-  snap.forEach(d=>{
-   let t=d.data();
-   if(t.to===user && t.from===currentChatUser && t.typing){
-    tHtml=`<div class="typing">${currentChatUser} typing...</div>`;
-   }
-  });
-  typingBox.innerHTML=tHtml;
+  reelBox.innerHTML=h;
  });
 }
 
