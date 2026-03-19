@@ -13,6 +13,7 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 .chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
 .chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
 .typing{font-size:12px;color:lightgreen;margin:5px;}
+.status{font-size:10px;color:lightgray;}
 </style>
 
 </head>
@@ -120,6 +121,7 @@ window.addEventListener("beforeunload",async ()=>{
 
 // NAV
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";};
+
 window.showProfile=async ()=>{
  feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";
  pname.innerText=user;
@@ -273,6 +275,7 @@ function load(){
 window.openChat=()=>{
  currentChatUser=chatUser.value;
  loadChat();
+ markSeen();
 };
 
 window.sendMsg=async ()=>{
@@ -280,7 +283,7 @@ window.sendMsg=async ()=>{
  if(!text || !currentChatUser) return;
 
  await addDoc(collection(db,"messages"),{
-  from:user,to:currentChatUser,text
+  from:user,to:currentChatUser,text,seen:false
  });
 
  await setDoc(doc(db,"typing",user),{typing:false},{merge:true});
@@ -288,6 +291,7 @@ window.sendMsg=async ()=>{
  msg.value="";
 };
 
+// TYPING
 window.typing=async ()=>{
  if(!currentChatUser) return;
 
@@ -298,6 +302,19 @@ window.typing=async ()=>{
  });
 };
 
+// SEEN
+async function markSeen(){
+ let snap=await getDocs(collection(db,"messages"));
+
+ snap.forEach(async d=>{
+  let m=d.data();
+  if(m.to===user && m.from===currentChatUser && !m.seen){
+    await updateDoc(doc(db,"messages",d.id),{seen:true});
+  }
+ });
+}
+
+// CHAT LOAD
 function loadChat(){
 
  onSnapshot(collection(db,"messages"),(snap)=>{
@@ -311,7 +328,17 @@ function loadChat(){
     (m.from===currentChatUser && m.to===user)
    ){
     let cls=m.from===user?"chat-me":"chat-other";
-    html+=`<div class="${cls}">${m.text}</div>`;
+
+    let status="";
+    if(m.from===user){
+      status = m.seen ? "✔️✔️ Seen" : "✔️ Sent";
+    }
+
+    html+=`
+    <div class="${cls}">
+      ${m.text}
+      <div class="status">${status}</div>
+    </div>`;
    }
   });
 
