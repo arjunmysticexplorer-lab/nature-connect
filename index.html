@@ -10,6 +10,9 @@ input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;c
 button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
 .card{background:linear-gradient(145deg,#1b3b1b,#0f2d0f);padding:15px;border-radius:15px;margin:10px;}
 img{width:100%;border-radius:10px;margin-top:10px;}
+.storyBar{display:flex;overflow:auto;padding:10px;}
+.story{margin-right:10px;text-align:center;}
+.story img{width:60px;height:60px;border-radius:50%;border:2px solid #00c853;}
 .chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
 .chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
 .typing{font-size:12px;color:lightgreen;margin:5px;}
@@ -37,13 +40,21 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 
 <div id="main" style="display:none">
 
+<!-- FEED -->
 <div id="feed">
+
+<div class="storyBar" id="stories"></div>
+<input type="file" id="storyFile">
+<button onclick="addStory()">Add Story</button>
+
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
+
 <div id="posts"></div>
 </div>
 
+<!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
 <p id="pcount"></p>
@@ -51,11 +62,13 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <div id="profilePosts"></div>
 </div>
 
+<!-- NOTIFICATION -->
 <div id="notify" style="display:none">
 <h2>🔔 Notifications</h2>
 <div id="note"></div>
 </div>
 
+<!-- CHAT -->
 <div id="chat" style="display:none">
 <h2>💬 Chat</h2>
 <input id="chatUser" placeholder="Enter username">
@@ -74,15 +87,7 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import {
-getFirestore,
-collection,
-addDoc,
-getDocs,
-doc,
-setDoc,
-getDoc,
-updateDoc,
-onSnapshot
+getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app = initializeApp({
@@ -101,15 +106,14 @@ window.login=async ()=>{
  if(!user) return alert("Enter name");
 
  await setDoc(doc(db,"users",user),{
-  followers:[],
-  following:[],
-  online:true
+  followers:[],following:[],online:true
  },{merge:true});
 
  loginBox.style.display="none";
  main.style.display="block";
 
  load();
+ loadStories();
 };
 
 // OFFLINE
@@ -121,7 +125,6 @@ window.addEventListener("beforeunload",async ()=>{
 
 // NAV
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";};
-
 window.showProfile=async ()=>{
  feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";
  pname.innerText=user;
@@ -131,10 +134,7 @@ window.showProfile=async ()=>{
 
  snap.forEach(d=>{
   let p=d.data();
-  if(p.user===user){
-   count++;
-   html+=`<div class="card">${p.text}</div>`;
-  }
+  if(p.user===user){count++;html+=`<div class="card">${p.text}</div>`;}
  });
 
  pcount.innerText="Posts: "+count;
@@ -152,9 +152,7 @@ window.showNotifications=()=>{
   let html="";
   snap.forEach(d=>{
    let n=d.data();
-   if(n.to===user){
-    html+=`<div class="card">${n.text}</div>`;
-   }
+   if(n.to===user){html+=`<div class="card">${n.text}</div>`;}
   });
   note.innerHTML=html;
  });
@@ -163,6 +161,41 @@ window.showNotifications=()=>{
 window.showChat=()=>{
  feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";
 };
+
+// STORY ADD
+window.addStory=async ()=>{
+ let file=document.getElementById("storyFile").files[0];
+ if(!file) return;
+
+ let reader=new FileReader();
+ reader.onload=async ()=>{
+  await addDoc(collection(db,"stories"),{
+   user,image:reader.result,time:Date.now()
+  });
+ };
+ reader.readAsDataURL(file);
+};
+
+// STORY LOAD
+function loadStories(){
+ onSnapshot(collection(db,"stories"),(snap)=>{
+  let html="";
+
+  snap.forEach(d=>{
+   let s=d.data();
+
+   if(Date.now()-s.time > 86400000) return;
+
+   html+=`
+   <div class="story">
+    <img src="${s.image}">
+    <div style="font-size:10px">${s.user}</div>
+   </div>`;
+  });
+
+  stories.innerHTML=html;
+ });
+}
 
 // POST
 window.addPost=async ()=>{
@@ -187,12 +220,8 @@ window.addPost=async ()=>{
 // LIKE
 window.like=async(id,likes,owner)=>{
  await updateDoc(doc(db,"posts",id),{likes:likes+1});
-
  if(owner!==user){
-  await addDoc(collection(db,"notifications"),{
-   text:user+" liked your post",
-   to:owner
-  });
+  await addDoc(collection(db,"notifications"),{text:user+" liked your post",to:owner});
  }
 };
 
@@ -207,7 +236,6 @@ window.sendComment=async(id)=>{
  let comments=snap.data().comments||[];
 
  comments.push(user+": "+text);
-
  await updateDoc(postRef,{comments});
  input.value="";
 };
@@ -237,14 +265,13 @@ window.followUser=async(target)=>{
  await updateDoc(tRef,{followers});
 };
 
-// 🔥 FEED
+// FEED
 function load(){
  onSnapshot(collection(db,"posts"), async (snap)=>{
   let html="";
 
   for(const d of snap.docs){
    let p=d.data();
-
    let userSnap=await getDoc(doc(db,"users",p.user));
    let online=userSnap.data()?.online;
 
@@ -287,25 +314,19 @@ window.sendMsg=async ()=>{
  });
 
  await setDoc(doc(db,"typing",user),{typing:false},{merge:true});
-
  msg.value="";
 };
 
-// TYPING
 window.typing=async ()=>{
  if(!currentChatUser) return;
 
  await setDoc(doc(db,"typing",user),{
-  to:currentChatUser,
-  from:user,
-  typing:true
+  to:currentChatUser,from:user,typing:true
  });
 };
 
-// SEEN
 async function markSeen(){
  let snap=await getDocs(collection(db,"messages"));
-
  snap.forEach(async d=>{
   let m=d.data();
   if(m.to===user && m.from===currentChatUser && !m.seen){
@@ -314,7 +335,6 @@ async function markSeen(){
  });
 }
 
-// CHAT LOAD
 function loadChat(){
 
  onSnapshot(collection(db,"messages"),(snap)=>{
@@ -323,21 +343,14 @@ function loadChat(){
   snap.forEach(d=>{
    let m=d.data();
 
-   if(
-    (m.from===user && m.to===currentChatUser) ||
-    (m.from===currentChatUser && m.to===user)
-   ){
+   if((m.from===user && m.to===currentChatUser) || (m.from===currentChatUser && m.to===user)){
     let cls=m.from===user?"chat-me":"chat-other";
-
-    let status="";
-    if(m.from===user){
-      status = m.seen ? "✔️✔️ Seen" : "✔️ Sent";
-    }
+    let status=m.from===user?(m.seen?"✔️✔️ Seen":"✔️ Sent"):"";
 
     html+=`
     <div class="${cls}">
-      ${m.text}
-      <div class="status">${status}</div>
+     ${m.text}
+     <div class="status">${status}</div>
     </div>`;
    }
   });
@@ -345,13 +358,11 @@ function loadChat(){
   chatBox.innerHTML=html;
  });
 
- // typing
  onSnapshot(collection(db,"typing"),(snap)=>{
   let tHtml="";
 
   snap.forEach(d=>{
    let t=d.data();
-
    if(t.to===user && t.from===currentChatUser && t.typing){
     tHtml=`<div class="typing">${currentChatUser} typing...</div>`;
    }
