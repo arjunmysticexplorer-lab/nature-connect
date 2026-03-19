@@ -15,46 +15,42 @@ body{
 .top{
  display:flex;
  justify-content:space-between;
- align-items:center;
  padding:15px;
- background:rgba(12,43,12,0.9);
- backdrop-filter:blur(10px);
- position:sticky;
- top:0;
+ background:#0c2b0c;
 }
 
+/* INPUT */
 input{
  width:80%;
- padding:12px;
- border-radius:25px;
+ padding:10px;
+ border-radius:20px;
  border:none;
- background:#0f2d0f;
+ background:#123812;
  color:white;
- margin:6px;
+ margin:5px;
 }
 
+/* BUTTON */
 button{
- padding:10px 15px;
+ padding:8px 12px;
  border:none;
- border-radius:25px;
- background:linear-gradient(45deg,#00c853,#00e676);
- color:black;
- font-weight:bold;
+ border-radius:20px;
+ background:#00c853;
+ color:white;
 }
 
 /* CARD */
 .card{
- background:rgba(20,50,20,0.7);
- backdrop-filter:blur(12px);
+ background:#1b3b1b;
  padding:15px;
- border-radius:20px;
- margin:12px;
- box-shadow:0 8px 20px rgba(0,0,0,0.6);
+ border-radius:15px;
+ margin:10px;
 }
 
+/* IMAGE */
 img{
  width:100%;
- border-radius:15px;
+ border-radius:10px;
  margin-top:10px;
 }
 
@@ -64,26 +60,25 @@ img{
 .story img{width:65px;height:65px;border-radius:50%;border:3px solid #00e676;}
 
 /* CHAT */
-.chat-me{
- background:linear-gradient(45deg,#00c853,#00e676);
- color:black;
- padding:10px;
- border-radius:15px;
- margin:6px;
- text-align:right;
- max-width:70%;
- margin-left:auto;
-}
-.chat-other{
- background:#1b3b1b;
- padding:10px;
- border-radius:15px;
- margin:6px;
- max-width:70%;
-}
-
-.status{font-size:10px;opacity:0.7;}
+.chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
+.chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
+.status{font-size:10px;color:lightgray;}
 .typing{font-size:12px;color:#00e676;}
+
+/* STORY FULL */
+.fullStory{
+ position:fixed;
+ top:0;left:0;
+ width:100%;height:100%;
+ background:black;
+ display:none;
+ justify-content:center;
+ align-items:center;
+ flex-direction:column;
+ z-index:100;
+}
+.fullStory img{width:100%;height:80%;object-fit:contain;}
+.closeBtn{position:absolute;top:20px;right:20px;}
 </style>
 </head>
 
@@ -99,6 +94,13 @@ img{
 </div>
 </div>
 
+<!-- STORY FULL -->
+<div id="fullStory" class="fullStory" onclick="nextStory()">
+<button class="closeBtn" onclick="closeStory(event)">❌</button>
+<img id="storyImg">
+</div>
+
+<!-- LOGIN -->
 <div id="loginBox">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
@@ -152,8 +154,9 @@ img{
 <script type="module">
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import {getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot}
-from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import {
+getFirestore,collection,addDoc,getDocs,doc,setDoc,getDoc,updateDoc,onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const app=initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
@@ -164,6 +167,8 @@ const db=getFirestore(app);
 
 let user="";
 let currentChatUser="";
+let storyList=[];
+let currentIndex=0;
 
 // LOGIN
 window.login=async ()=>{
@@ -181,15 +186,11 @@ window.login=async ()=>{
  loadStories();
 };
 
-// OFFLINE
-window.addEventListener("beforeunload",async ()=>{
- if(user) await updateDoc(doc(db,"users",user),{online:false});
-});
-
 // NAV
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";};
 window.showProfile=async ()=>{
  feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";
+
  pname.innerText=user;
 
  let snap=await getDocs(collection(db,"posts"));
@@ -197,7 +198,10 @@ window.showProfile=async ()=>{
 
  snap.forEach(d=>{
   let p=d.data();
-  if(p.user===user){count++;html+=`<div class="card">${p.text}</div>`;}
+  if(p.user===user){
+   count++;
+   html+=`<div class="card">${p.text}</div>`;
+  }
  });
 
  pcount.innerText="Posts: "+count;
@@ -215,7 +219,9 @@ window.showNotifications=()=>{
   let html="";
   snap.forEach(d=>{
    let n=d.data();
-   if(n.to===user){html+=`<div class="card">${n.text}</div>`;}
+   if(n.to===user){
+    html+=`<div class="card">${n.text}</div>`;
+   }
   });
   note.innerHTML=html;
  });
@@ -227,7 +233,7 @@ window.showChat=()=>{
 
 // STORY
 window.addStory=async ()=>{
- let file=document.getElementById("storyFile").files[0];
+ let file=storyFile.files[0];
  if(!file) return;
 
  let reader=new FileReader();
@@ -239,12 +245,14 @@ window.addStory=async ()=>{
 
 function loadStories(){
  onSnapshot(collection(db,"stories"),(snap)=>{
-  let html="";
+  let html="";storyList=[];
   snap.forEach(d=>{
    let s=d.data();
    if(Date.now()-s.time>86400000) return;
 
-   html+=`<div class="story">
+   storyList.push(s);
+
+   html+=`<div class="story" onclick="openStory(${storyList.length-1})">
     <img src="${s.image}">
     <div style="font-size:10px">${s.user}</div>
    </div>`;
@@ -252,6 +260,31 @@ function loadStories(){
   stories.innerHTML=html;
  });
 }
+
+// STORY FULL
+window.openStory=(i)=>{
+ currentIndex=i;
+ fullStory.style.display="flex";
+ showStory();
+};
+
+function showStory(){
+ storyImg.src=storyList[currentIndex].image;
+}
+
+window.nextStory=()=>{
+ currentIndex++;
+ if(currentIndex>=storyList.length){
+  closeStory();
+ }else{
+  showStory();
+ }
+};
+
+window.closeStory=(e)=>{
+ if(e)e.stopPropagation();
+ fullStory.style.display="none";
+};
 
 // POST
 window.addPost=async ()=>{
@@ -272,23 +305,35 @@ window.addPost=async ()=>{
 // LIKE
 window.like=async(id,likes,owner)=>{
  await updateDoc(doc(db,"posts",id),{likes:likes+1});
+
  if(owner!==user){
-  await addDoc(collection(db,"notifications"),{text:user+" liked your post",to:owner});
+  await addDoc(collection(db,"notifications"),{
+   text:user+" liked your post",
+   to:owner
+  });
  }
 };
 
 // COMMENT
-window.sendComment=async(id)=>{
+window.sendComment=async(id,owner)=>{
  let input=document.getElementById("c-"+id);
  let text=input.value.trim();
  if(!text) return;
 
- let ref=doc(db,"posts",id);
- let snap=await getDoc(ref);
+ let snap=await getDoc(doc(db,"posts",id));
  let comments=snap.data().comments||[];
 
  comments.push(user+": "+text);
- await updateDoc(ref,{comments});
+
+ await updateDoc(doc(db,"posts",id),{comments});
+
+ if(owner!==user){
+  await addDoc(collection(db,"notifications"),{
+   text:user+" commented on your post",
+   to:owner
+  });
+ }
+
  input.value="";
 };
 
@@ -324,13 +369,10 @@ function load(){
 
   for(const d of snap.docs){
    let p=d.data();
-   let u=await getDoc(doc(db,"users",p.user));
-   let online=u.data()?.online;
 
    html+=`
    <div class="card">
-    <b>${p.user} ${online?"🟢":"⚫"}</b>
-
+    <b>${p.user}</b>
     ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
 
     <p>${p.text}</p>
@@ -342,7 +384,7 @@ function load(){
     <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
 
     <input id="c-${d.id}">
-    <button onclick="sendComment('${d.id}')">Send</button>
+    <button onclick="sendComment('${d.id}','${p.user}')">Send</button>
    </div>`;
   }
 
@@ -361,14 +403,20 @@ window.sendMsg=async ()=>{
  let text=msg.value;
  if(!text||!currentChatUser) return;
 
- await addDoc(collection(db,"messages"),{from:user,to:currentChatUser,text,seen:false});
+ await addDoc(collection(db,"messages"),{
+  from:user,to:currentChatUser,text,seen:false
+ });
+
  await setDoc(doc(db,"typing",user),{typing:false},{merge:true});
  msg.value="";
 };
 
 window.typing=async ()=>{
  if(!currentChatUser) return;
- await setDoc(doc(db,"typing",user),{to:currentChatUser,from:user,typing:true});
+
+ await setDoc(doc(db,"typing",user),{
+  to:currentChatUser,from:user,typing:true
+ });
 };
 
 async function markSeen(){
