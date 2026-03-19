@@ -57,6 +57,19 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="sendCoins()">Send QNC</button>
 </div>
 
+<!-- WITHDRAW -->
+<div class="card">
+<h3>💸 Withdraw QNC</h3>
+<input id="withdrawAmount" type="number" placeholder="Amount">
+<input id="upiId" placeholder="UPI ID">
+<button onclick="withdrawRequest()">Withdraw</button>
+</div>
+
+<div class="card">
+<h3>📜 Withdraw History</h3>
+<div id="withdrawList"></div>
+</div>
+
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
@@ -69,7 +82,7 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <h2 id="pname"></h2>
 </div>
 
-<!-- NOTIFICATIONS -->
+<!-- NOTIFY -->
 <div id="notify" style="display:none">
 <h2>Notifications</h2>
 <div id="note"></div>
@@ -120,9 +133,7 @@ window.login=async()=>{
  loginBox.style.display="none";
  main.style.display="block";
 
- load();
- loadCoins();
- loadReels();
+ load(); loadCoins(); loadReels(); loadWithdraws();
 };
 
 // OFFLINE
@@ -132,7 +143,7 @@ window.addEventListener("beforeunload",async()=>{
  }
 });
 
-// NAVIGATION
+// NAV
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
 window.showProfile=()=>{feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";reels.style.display="none";pname.innerText=user;}
 window.showNotifications=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";reels.style.display="none";}
@@ -189,8 +200,46 @@ window.sendCoins=async()=>{
  }
 
  loadCoins();
- alert("Sent!");
 };
+
+// WITHDRAW
+window.withdrawRequest=async()=>{
+ let amount=parseInt(withdrawAmount.value);
+ let upi=upiId.value.trim();
+
+ if(!amount||!upi) return alert("Enter details");
+
+ let ref=doc(db,"users",user);
+ let data=(await getDoc(ref)).data();
+
+ if((data.coins||0)<amount){
+  alert("Not enough QNC");
+  return;
+ }
+
+ await updateDoc(ref,{coins:data.coins-amount});
+
+ await addDoc(collection(db,"withdraws"),{
+  user,amount,upi,status:"pending",time:Date.now()
+ });
+
+ loadCoins();
+ alert("Withdraw requested");
+};
+
+// WITHDRAW LIST
+function loadWithdraws(){
+ onSnapshot(collection(db,"withdraws"),s=>{
+  let html="";
+  s.forEach(d=>{
+   let w=d.data();
+   if(w.user===user){
+    html+=`<div>💸 ${w.amount} → ${w.status}</div>`;
+   }
+  });
+  withdrawList.innerHTML=html;
+ });
+}
 
 // POST
 window.addPost=async()=>{
@@ -233,7 +282,7 @@ window.sendComment=async(id)=>{
  input.value="";
 };
 
-// FEED LOAD
+// FEED
 function load(){
  onSnapshot(collection(db,"posts"),async s=>{
   let html="";
@@ -248,20 +297,15 @@ function load(){
    <div class="card">
    <b>${p.user} ${online?"🟢":"⚫"}</b>
    <p>${p.text||""}</p>
-
    ${p.image?`<img src="${p.image}">`:""}
 
-   <div>
    ❤️ ${p.likes||0}
    <button class="like-btn" onclick="like('${d.id}',${p.likes||0})">👍 Like</button>
-   </div>
 
-   <div>
-   ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
-   </div>
+   <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
 
    <div class="comment-box">
-   <input id="c-${d.id}" placeholder="Write comment...">
+   <input id="c-${d.id}">
    <button onclick="sendComment('${d.id}')">Send</button>
    </div>
 
@@ -299,10 +343,7 @@ window.uploadReel=async()=>{
 
  let r=new FileReader();
  r.onload=async()=>{
-  await addDoc(collection(db,"reels"),{
-   user,
-   video:r.result
-  });
+  await addDoc(collection(db,"reels"),{user,video:r.result});
  };
  r.readAsDataURL(f);
 };
