@@ -6,12 +6,10 @@
 <style>
 body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
 .top{display:flex;justify-content:space-between;padding:12px;background:#0c2b0c;}
-button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;}
+button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;margin:2px;}
 input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
 .card{background:#1b3b1b;padding:15px;border-radius:15px;margin:10px;}
-img{width:100%;border-radius:10px;margin-top:10px;}
-.chat-me{background:#00c853;padding:8px;margin:5px;border-radius:10px;text-align:right;}
-.chat-other{background:#1b3b1b;padding:8px;margin:5px;border-radius:10px;}
+img,video{width:100%;border-radius:10px;margin-top:10px;}
 </style>
 </head>
 
@@ -24,6 +22,7 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="showProfile()">👤</button>
 <button onclick="showNotifications()">🔔</button>
 <button onclick="showChat()">💬</button>
+<button onclick="showReels()">🎥</button>
 </div>
 </div>
 
@@ -71,6 +70,13 @@ img{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="sendMsg()">Send</button>
 </div>
 
+<!-- REELS -->
+<div id="reels" style="display:none">
+<input type="file" id="reelFile">
+<button onclick="uploadReel()">Upload Reel</button>
+<div id="reelBox"></div>
+</div>
+
 </div>
 
 <script type="module">
@@ -95,7 +101,8 @@ window.login=async()=>{
 
  await setDoc(doc(db,"users",user),{
   coins:0,
-  lastMine:0
+  lastMine:0,
+  online:true
  },{merge:true});
 
  loginBox.style.display="none";
@@ -103,9 +110,17 @@ window.login=async()=>{
 
  load();
  loadCoins();
+ loadReels();
 };
 
-// COINS LOAD
+// OFFLINE
+window.addEventListener("beforeunload", async ()=>{
+ if(user){
+  await updateDoc(doc(db,"users",user),{online:false});
+ }
+});
+
+// COINS
 async function loadCoins(){
  let u=await getDoc(doc(db,"users",user));
  coinBal.innerText=u.data()?.coins||0;
@@ -122,25 +137,28 @@ window.startMining=async()=>{
   return;
  }
 
- let coins=(data.coins||0)+10;
+ await updateDoc(ref,{
+  coins:(data.coins||0)+10,
+  lastMine:now
+ });
 
- await updateDoc(ref,{coins,lastMine:now});
  loadCoins();
- alert("⛏️ +10 QNC");
+ alert("+10 QNC");
 };
 
 // NAV
-window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";}
-window.showProfile=()=>{feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";}
-window.showNotifications=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";}
-window.showChat=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";}
+window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
+window.showProfile=()=>{feed.style.display="none";profile.style.display="block";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
+window.showNotifications=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="block";chat.style.display="none";reels.style.display="none";}
+window.showChat=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="block";reels.style.display="none";}
+window.showReels=()=>{feed.style.display="none";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="block";}
 
 // POST
 window.addPost=async()=>{
  let text=postText.value;
- let fileInput=file.files[0];
+ let f=file.files[0];
 
- if(fileInput){
+ if(f){
   let r=new FileReader();
   r.onload=async()=>{
    await addDoc(collection(db,"posts"),{
@@ -148,7 +166,7 @@ window.addPost=async()=>{
    });
    reward(10);
   };
-  r.readAsDataURL(fileInput);
+  r.readAsDataURL(f);
  }else{
   await addDoc(collection(db,"posts"),{
    user,text,image:"",likes:0,comments:[]
@@ -192,18 +210,21 @@ async function reward(val){
  loadCoins();
 }
 
-// FEED (FIXED)
+// FEED
 function load(){
- onSnapshot(collection(db,"posts"),s=>{
+ onSnapshot(collection(db,"posts"),async s=>{
   let html="";
 
-  s.forEach(d=>{
+  for(const d of s.docs){
    let p=d.data();
+
+   let uDoc = await getDoc(doc(db,"users",p.user));
+   let online = uDoc.data()?.online;
 
    html+=`
    <div class="card">
 
-    <b>${p.user}</b>
+    <b>${p.user} ${online?"🟢":"⚫"}</b>
 
     <p>${p.text||""}</p>
 
@@ -223,7 +244,7 @@ function load(){
 
    </div>
    `;
-  });
+  }
 
   posts.innerHTML=html;
  });
@@ -252,6 +273,38 @@ function loadChat(){
    }
   });
   chatBox.innerHTML=h;
+ });
+}
+
+// REELS
+window.uploadReel=async()=>{
+ let f=reelFile.files[0];
+ if(!f) return;
+
+ let r=new FileReader();
+ r.onload=async()=>{
+  await addDoc(collection(db,"reels"),{
+   user,
+   video:r.result
+  });
+ };
+ r.readAsDataURL(f);
+};
+
+function loadReels(){
+ onSnapshot(collection(db,"reels"),s=>{
+  let h="";
+  s.forEach(d=>{
+   let r=d.data();
+
+   h+=`
+   <div class="card">
+    <b>${r.user}</b>
+    <video src="${r.video}" controls></video>
+   </div>
+   `;
+  });
+  reelBox.innerHTML=h;
  });
 }
 
