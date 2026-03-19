@@ -1,4 +1,139 @@
-pcount.innerText="Posts: "+count;
+<!DOCTYPE html>
+<html>
+<head>
+<title>Nature Connect</title>
+
+<style>
+body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
+.top{display:flex;justify-content:space-between;align-items:center;background:#0c2b0c;padding:12px;}
+input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
+button{padding:8px 12px;border:none;border-radius:20px;background:#00c853;color:white;}
+.card{background:linear-gradient(145deg,#1b3b1b,#0f2d0f);padding:15px;border-radius:15px;margin:10px;box-shadow:0 5px 15px rgba(0,0,0,0.5);}
+img{width:100%;border-radius:10px;margin-top:10px;max-height:400px;object-fit:cover;background:#0a250a;}
+.chat-me{background:#00c853;padding:8px;border-radius:10px;margin:5px;text-align:right;}
+.chat-other{background:#1b3b1b;padding:8px;border-radius:10px;margin:5px;}
+</style>
+</head>
+
+<body>
+
+<div class="top">
+<b>🌍 Nature Connect</b>
+<div>
+<button onclick="showFeed()">🏠</button>
+<button onclick="showProfile()">👤</button>
+<button onclick="showNotifications()">🔔</button>
+<button onclick="showChat()">💬</button>
+</div>
+</div>
+
+<div id="loginBox">
+<input id="username" placeholder="Enter name">
+<button onclick="login()">Login</button>
+</div>
+
+<div id="main" style="display:none">
+
+<div id="feed">
+<input id="postText" placeholder="Write post">
+<input type="file" id="file">
+<button onclick="addPost()">Post</button>
+<div id="posts"></div>
+</div>
+
+<div id="profile" style="display:none">
+<h2 id="pname"></h2>
+<p id="pcount"></p>
+<p id="followers"></p>
+<div id="profilePosts"></div>
+</div>
+
+<div id="notify" style="display:none">
+<h2>🔔 Notifications</h2>
+<div id="note"></div>
+</div>
+
+<div id="chat" style="display:none">
+<h2>💬 Chat</h2>
+<input id="chatUser" placeholder="Enter username">
+<button onclick="openChat()">Open</button>
+<div id="chatBox"></div>
+<input id="msg" placeholder="Type message">
+<button onclick="sendMsg()">Send</button>
+</div>
+
+</div>
+
+<script type="module">
+
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import {
+getFirestore,
+collection,
+addDoc,
+getDocs,
+doc,
+setDoc,
+getDoc,
+updateDoc,
+onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const app = initializeApp({
+ apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
+ projectId:"nature-connect-a1592"
+});
+
+const db = getFirestore(app);
+
+let user="";
+let currentChatUser="";
+
+// LOGIN
+window.login=async ()=>{
+ user=document.getElementById("username").value.trim();
+ if(!user) return alert("Enter name");
+
+ await setDoc(doc(db,"users",user),{
+  followers:[],
+  following:[]
+ },{merge:true});
+
+ loginBox.style.display="none";
+ main.style.display="block";
+
+ load();
+};
+
+// NAV
+window.showFeed=()=>{
+ feed.style.display="block";
+ profile.style.display="none";
+ notify.style.display="none";
+ chat.style.display="none";
+};
+
+window.showProfile=async ()=>{
+ feed.style.display="none";
+ profile.style.display="block";
+ notify.style.display="none";
+ chat.style.display="none";
+
+ pname.innerText=user;
+
+ let snap=await getDocs(collection(db,"posts"));
+ let count=0;
+ let html="";
+
+ snap.forEach(d=>{
+  let p=d.data();
+  if(p.user===user){
+   count++;
+   html+=`<div class="card">${p.text}</div>`;
+  }
+ });
+
+ pcount.innerText="Posts: "+count;
 
  let u=await getDoc(doc(db,"users",user));
  followers.innerText="Followers: "+(u.data()?.followers?.length||0);
@@ -6,23 +141,22 @@ pcount.innerText="Posts: "+count;
  profilePosts.innerHTML=html;
 };
 
-window.showNotifications=async ()=>{
+window.showNotifications=()=>{
  feed.style.display="none";
  profile.style.display="none";
  notify.style.display="block";
  chat.style.display="none";
 
- let snap=await getDocs(collection(db,"notifications"));
- let html="";
-
- snap.forEach(d=>{
-  let n=d.data();
-  if(n.to===user){
+ onSnapshot(collection(db,"notifications"),(snap)=>{
+  let html="";
+  snap.forEach(d=>{
+   let n=d.data();
+   if(n.to===user){
     html+=`<div class="card">${n.text}</div>`;
-  }
+   }
+  });
+  note.innerHTML=html;
  });
-
- note.innerHTML=html;
 };
 
 window.showChat=()=>{
@@ -43,14 +177,12 @@ window.addPost=async ()=>{
    await addDoc(collection(db,"posts"),{
     user,text,image:reader.result,likes:0,comments:[]
    });
-   load();
   };
   reader.readAsDataURL(file);
  }else{
   await addDoc(collection(db,"posts"),{
    user,text,image:"",likes:0,comments:[]
   });
-  load();
  }
 };
 
@@ -64,36 +196,22 @@ window.like=async(id,likes,owner)=>{
    to:owner
   });
  }
-
- load();
 };
 
 // COMMENT
-window.sendComment=async(id,owner)=>{
+window.sendComment=async(id)=>{
  let input=document.getElementById("c-"+id);
  let text=input.value.trim();
  if(!text) return;
 
- let snap=await getDocs(collection(db,"posts"));
- let comments=[];
-
- snap.forEach(d=>{
-  if(d.id===id) comments=d.data().comments||[];
- });
+ let postRef=doc(db,"posts",id);
+ let postSnap=await getDoc(postRef);
+ let comments=postSnap.data().comments||[];
 
  comments.push(user+": "+text);
 
- await updateDoc(doc(db,"posts",id),{comments});
-
- if(owner!==user){
-  await addDoc(collection(db,"notifications"),{
-   text:user+" commented: "+text,
-   to:owner
-  });
- }
-
+ await updateDoc(postRef,{comments});
  input.value="";
- load();
 };
 
 // FOLLOW
@@ -119,31 +237,27 @@ window.followUser=async(target)=>{
 
  await updateDoc(myRef,{following});
  await updateDoc(tRef,{followers});
-
- load();
 };
 
-// SMART FEED
-async function load(){
- let userDoc = await getDoc(doc(db,"users",user));
- let following = userDoc.data()?.following || [];
+// 🔥 REAL-TIME FEED
+function load(){
 
- let snap=await getDocs(collection(db,"posts"));
- let html="";
+ onSnapshot(collection(db,"posts"), async (snap)=>{
 
- snap.forEach(d=>{
-  let p=d.data();
+  let html="";
 
-  if(p.user !== user && !following.includes(p.user)) return;
+  snap.forEach(d=>{
+   let p=d.data();
 
-  html+=`
-  <div class="card">
-    <b>${p.user}</b>
-    ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
+   html+=`
+   <div class="card">
+    <div style="display:flex;justify-content:space-between">
+      <b>${p.user}</b>
+      ${p.user!==user?`<button onclick="followUser('${p.user}')">Follow</button>`:""}
+    </div>
 
     <p>${p.text}</p>
-
-    ${p.image?`<img src="${p.image}" width="100%">`:""}
+    ${p.image?`<img src="${p.image}">`:""}
 
     ❤️ ${p.likes}
     <button onclick="like('${d.id}',${p.likes},'${p.user}')">Like</button>
@@ -151,12 +265,15 @@ async function load(){
     <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
 
     <input id="c-${d.id}" placeholder="Write comment">
-    <button onclick="sendComment('${d.id}','${p.user}')">Send</button>
-  </div>
-  `;
+    <button onclick="sendComment('${d.id}')">Send</button>
+   </div>
+   `;
+  });
+
+  posts.innerHTML=html;
+
  });
 
- document.getElementById("posts").innerHTML=html;
 }
 
 // CHAT
@@ -176,25 +293,28 @@ window.sendMsg=async ()=>{
  });
 
  document.getElementById("msg").value="";
- loadChat();
 };
 
-async function loadChat(){
- let snap=await getDocs(collection(db,"messages"));
- let html="";
+function loadChat(){
 
- snap.forEach(d=>{
-  let m=d.data();
+ onSnapshot(collection(db,"messages"),(snap)=>{
+  let html="";
 
-  if(
+  snap.forEach(d=>{
+   let m=d.data();
+
+   if(
     (m.from===user && m.to===currentChatUser) ||
     (m.from===currentChatUser && m.to===user)
-  ){
-    html+=`<p><b>${m.from}:</b> ${m.text}</p>`;
-  }
+   ){
+    let cls=m.from===user?"chat-me":"chat-other";
+    html+=`<div class="${cls}">${m.text}</div>`;
+   }
+  });
+
+  chatBox.innerHTML=html;
  });
 
- document.getElementById("chatBox").innerHTML=html;
 }
 
 </script>
