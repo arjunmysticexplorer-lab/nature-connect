@@ -3,84 +3,89 @@
 <head>
 <title>Nature Connect</title>
 
-<!-- 🔥 MOBILE FIX -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <style>
-body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
 
-/* TOP BAR */
-.top{
- display:flex;
- justify-content:space-between;
- padding:12px;
- background:#0c2b0c;
- align-items:center;
-}
-
-/* 🔥 ICON BUTTON FIX */
-.top button{
- padding:10px 12px;
- font-size:16px;
- min-width:40px;
- min-height:40px;
- border-radius:50%;
- background:#00c853;
+body{
+ margin:0;
+ font-family:sans-serif;
+ background:linear-gradient(180deg,#021a02,#063d06);
  color:white;
- border:none;
 }
 
-/* BUTTON */
-button{
- padding:8px;
- border:none;
- border-radius:20px;
- background:#00c853;
- color:white;
- margin:2px;
+/* GLASS CARD */
+.card{
+ background:rgba(255,255,255,0.05);
+ backdrop-filter:blur(10px);
+ border-radius:15px;
+ padding:15px;
+ margin:10px;
+ box-shadow:0 5px 20px rgba(0,0,0,0.4);
+ animation:fadeIn 0.5s ease;
 }
 
-/* 🔥 INPUT FIX (NO ZOOM) */
-input, textarea{
+/* INPUT FIX */
+input,textarea{
  width:80%;
- padding:10px;
+ padding:12px;
  border-radius:20px;
  border:none;
  background:#123812;
  color:white;
  margin:5px;
- font-size:16px !important;
+ font-size:16px;
 }
 
-/* CARD */
-.card{
- background:#1b3b1b;
- padding:15px;
- border-radius:15px;
- margin:10px;
+/* BUTTON */
+button{
+ background:#00c853;
+ border:none;
+ padding:10px;
+ border-radius:20px;
+ color:white;
 }
 
+/* IMAGE */
 img,video{
  width:100%;
  border-radius:10px;
  margin-top:10px;
 }
-</style>
 
+/* ANIMATION */
+@keyframes fadeIn{
+ from{opacity:0;transform:translateY(10px);}
+ to{opacity:1;}
+}
+
+/* 🔥 BOTTOM NAV */
+.bottom{
+ position:fixed;
+ bottom:0;
+ width:100%;
+ background:#0c2b0c;
+ display:flex;
+ justify-content:space-around;
+ padding:10px;
+}
+
+.bottom button{
+ font-size:18px;
+ background:none;
+}
+
+/* CONTENT SPACE */
+#main{
+ padding-bottom:70px;
+}
+
+</style>
 </head>
+
 <body>
 
-<div class="top">
-<b>🌍 Nature Connect</b>
-<div>
-<button onclick="showFeed()">🏠</button>
-<button onclick="showProfile()">👤</button>
-<button onclick="showNotifications()">🔔</button>
-<button onclick="showChat()">💬</button>
-<button onclick="showReels()">🎥</button>
-</div>
-</div>
-
+<!-- LOGIN -->
 <div id="loginBox">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
@@ -88,6 +93,7 @@ img,video{
 
 <div id="main" style="display:none">
 
+<!-- FEED -->
 <div id="feed">
 
 <div class="card">
@@ -101,14 +107,14 @@ img,video{
 </div>
 
 <div class="card">
-<h3>🏆 Leaderboard</h3>
+🏆 Leaderboard
 <div id="leaderboard"></div>
 </div>
 
 <div class="card">
-<h3>🎁 Daily Bonus</h3>
-<p>🔥 Streak: <span id="streak">0</span> days</p>
-<button onclick="claimBonus()">Claim Bonus</button>
+🎁 Daily Bonus  
+🔥 Streak: <span id="streak">0</span><br>
+<button onclick="claimBonus()">Claim</button>
 </div>
 
 <input id="postText" placeholder="Write post">
@@ -119,23 +125,39 @@ img,video{
 
 </div>
 
-<div id="profile" style="display:none"><h2 id="pname"></h2></div>
+<!-- PROFILE -->
+<div id="profile" style="display:none">
+<h2 id="pname"></h2>
+</div>
+
+<!-- NOTIFICATIONS -->
 <div id="notify" style="display:none"></div>
 
+<!-- CHAT -->
 <div id="chat" style="display:none">
-<input id="chatUser">
+<input id="chatUser" placeholder="User">
 <button onclick="openChat()">Open</button>
 <div id="chatBox"></div>
 <input id="msg">
 <button onclick="sendMsg()">Send</button>
 </div>
 
+<!-- REELS -->
 <div id="reels" style="display:none">
 <input type="file" id="reelFile">
 <button onclick="uploadReel()">Upload</button>
 <div id="reelBox"></div>
 </div>
 
+</div>
+
+<!-- 🔥 BOTTOM NAV -->
+<div class="bottom">
+<button onclick="showFeed()">🏠</button>
+<button onclick="showProfile()">👤</button>
+<button onclick="showNotifications()">🔔</button>
+<button onclick="showChat()">💬</button>
+<button onclick="showReels()">🎥</button>
 </div>
 
 <script type="module">
@@ -153,7 +175,7 @@ const db=getFirestore(app);
 
 let user="",chatUser="";
 
-// LOGIN
+/* LOGIN */
 window.login=async()=>{
  user=username.value.trim();
  if(!user)return;
@@ -170,8 +192,6 @@ window.login=async()=>{
    streak:0,
    lastClaim:0
   });
- }else{
-  await updateDoc(ref,{online:true});
  }
 
  loginBox.style.display="none";
@@ -180,96 +200,61 @@ window.login=async()=>{
  loadPosts();
  loadCoins();
  loadLevel();
- loadReels();
  loadLeaderboard();
  loadBonus();
 
  setInterval(loadCoins,1000);
 };
 
-// NAV
+/* NAV */
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
 window.showProfile=()=>{profile.style.display="block";feed.style.display="none";pname.innerText=user;}
 window.showNotifications=()=>{notify.style.display="block";feed.style.display="none";}
 window.showChat=()=>{chat.style.display="block";feed.style.display="none";}
 window.showReels=()=>{reels.style.display="block";feed.style.display="none";}
 
-// MINING
+/* MINING */
 window.startMining=async()=>{
  let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
- if(d.miningStart)return;
  await updateDoc(ref,{miningStart:Date.now()});
 };
 
-// COINS
 async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
  let coins=d.coins||0;
- let start=d.miningStart||Date.now();
+ let sec=(Date.now()-d.miningStart)/1000;
 
- let sec=Math.floor((Date.now()-start)/1000);
-
- let level=d.mineLevel||1;
- let daily=20 + (level-1)*4;
-
- let speed=daily/86400;
+ let speed=(20+(d.mineLevel-1)*4)/86400;
 
  let total=coins+(sec*speed);
 
- await updateDoc(ref,{
-  coins:total,
-  miningStart:Date.now()
- });
+ await updateDoc(ref,{coins:total,miningStart:Date.now()});
 
  coinBal.innerText=total.toFixed(5);
 }
 
-// LEVEL
+/* LEVEL */
 async function loadLevel(){
  let d=(await getDoc(doc(db,"users",user))).data();
- mineLevel.innerText=d.mineLevel||1;
+ mineLevel.innerText=d.mineLevel;
 }
 
-// UPGRADE
-window.upgradeMining=async()=>{
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
-
- let cost=(d.mineLevel||1)*50;
-
- if(d.coins<cost)return alert("Low balance");
-
- await updateDoc(ref,{
-  coins:d.coins-cost,
-  mineLevel:(d.mineLevel||1)+1
- });
-
- loadLevel();
-};
-
-// LEADERBOARD
+/* LEADERBOARD */
 function loadLeaderboard(){
  onSnapshot(collection(db,"users"),snap=>{
-  let users=[];
+  let arr=[];
   snap.forEach(d=>{
-   users.push({name:d.id,coins:d.data().coins||0});
+   arr.push({n:d.id,c:d.data().coins||0});
   });
+  arr.sort((a,b)=>b.c-a.c);
 
-  users.sort((a,b)=>b.coins-a.coins);
-
-  let html="";
-  users.slice(0,10).forEach((u,i)=>{
-   html+=`<div>${i+1}. ${u.name} — ${u.coins.toFixed(5)} QNC</div>`;
-  });
-
-  leaderboard.innerHTML=html;
+  leaderboard.innerHTML=arr.slice(0,5).map((u,i)=>`${i+1}. ${u.n} - ${u.c.toFixed(5)}`).join("<br>");
  });
 }
 
-// BONUS
+/* BONUS */
 async function loadBonus(){
  let d=(await getDoc(doc(db,"users",user))).data();
  streak.innerText=d.streak||0;
@@ -279,129 +264,78 @@ window.claimBonus=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- let last=d.lastClaim||0;
  let now=Date.now();
- let diff=now-last;
+ if(now-(d.lastClaim||0)<86400000)return alert("Wait 24h");
 
- if(diff<86400000){
-  alert("Come after 24h");
-  return;
- }
+ let s=(d.streak||0)+1;
+ if(s>30)s=1;
 
- let streak=d.streak||0;
-
- if(diff>172800000){
-  streak=0;
- }
-
- streak++;
-
- if(streak>30){
-  streak=1;
- }
-
- let bonus=streak*0.1;
+ let bonus=s*0.1;
 
  await updateDoc(ref,{
-  coins:(d.coins||0)+bonus,
-  lastClaim:now,
-  streak:streak
+  coins:d.coins+bonus,
+  streak:s,
+  lastClaim:now
  });
-
- alert("+"+bonus.toFixed(2)+" QNC");
 
  loadBonus();
 };
 
-// POSTS
+/* POSTS */
 window.addPost=async()=>{
  let text=postText.value;
  let f=file.files[0];
 
  if(f){
   let r=new FileReader();
-  r.onload=async()=>{
-   await addDoc(collection(db,"posts"),{user,text,image:r.result,likes:0,comments:[]});
-  };
+  r.onload=()=>addDoc(collection(db,"posts"),{user,text,image:r.result,likes:0,comments:[]});
   r.readAsDataURL(f);
  }else{
-  await addDoc(collection(db,"posts"),{user,text,image:"",likes:0,comments:[]});
+  addDoc(collection(db,"posts"),{user,text,image:"",likes:0,comments:[]});
  }
 
  postText.value="";
 };
 
-// LOAD POSTS
+/* LOAD POSTS */
 function loadPosts(){
- onSnapshot(collection(db,"posts"),async s=>{
+ onSnapshot(collection(db,"posts"),snap=>{
   let html="";
-  for(const d of s.docs){
+  snap.forEach(d=>{
    let p=d.data();
-   let u=(await getDoc(doc(db,"users",p.user))).data();
-   let online=u?.online;
-
    html+=`
    <div class="card">
-   <b>${p.user} ${online?"🟢":"⚫"}</b>
-   <p>${p.text||""}</p>
+   <b>${p.user}</b>
+   <p>${p.text}</p>
    ${p.image?`<img src="${p.image}">`:""}
-   ❤️ ${p.likes||0}
-   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
-   <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
+   ❤️ ${p.likes}
+   <button onclick="like('${d.id}',${p.likes})">Like</button>
+   <div>${(p.comments||[]).join("<br>")}</div>
    <input id="c-${d.id}">
    <button onclick="sendComment('${d.id}')">Send</button>
    </div>`;
-  }
+  });
   posts.innerHTML=html;
  });
 }
 
-// LIKE
-window.like=async(id,l)=>await updateDoc(doc(db,"posts",id),{likes:l+1});
+/* LIKE */
+window.like=async(id,l)=>updateDoc(doc(db,"posts",id),{likes:l+1});
 
-// COMMENT
+/* COMMENT */
 window.sendComment=async(id)=>{
  let i=document.getElementById("c-"+id);
  let t=i.value;
  if(!t)return;
 
  let ref=doc(db,"posts",id);
- let s=(await getDoc(ref)).data();
- let c=s.comments||[];
+ let d=(await getDoc(ref)).data();
+ let c=d.comments||[];
 
  c.push(user+": "+t);
  await updateDoc(ref,{comments:c});
  i.value="";
 };
-
-// CHAT
-window.openChat=()=>chatUser=document.getElementById("chatUser").value;
-
-window.sendMsg=async()=>{
- await addDoc(collection(db,"messages"),{from:user,to:chatUser,text:msg.value});
- msg.value="";
-};
-
-// REELS
-window.uploadReel=async()=>{
- let f=reelFile.files[0];
- let r=new FileReader();
- r.onload=async()=>{
-  await addDoc(collection(db,"reels"),{user,video:r.result});
- };
- r.readAsDataURL(f);
-};
-
-function loadReels(){
- onSnapshot(collection(db,"reels"),s=>{
-  let h="";
-  s.forEach(d=>{
-   let r=d.data();
-   h+=`<video src="${r.video}" controls></video>`;
-  });
-  reelBox.innerHTML=h;
- });
-}
 
 </script>
 
