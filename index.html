@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <style>
-
 body{
  margin:0;
  font-family:sans-serif;
@@ -22,11 +21,10 @@ body{
  padding:15px;
  margin:10px;
  box-shadow:0 5px 20px rgba(0,0,0,0.4);
- animation:fadeIn 0.5s ease;
 }
 
-/* INPUT FIX */
-input,textarea{
+/* INPUT */
+input{
  width:80%;
  padding:12px;
  border-radius:20px;
@@ -46,20 +44,14 @@ button{
  color:white;
 }
 
-/* IMAGE */
+/* MEDIA */
 img,video{
  width:100%;
  border-radius:10px;
  margin-top:10px;
 }
 
-/* ANIMATION */
-@keyframes fadeIn{
- from{opacity:0;transform:translateY(10px);}
- to{opacity:1;}
-}
-
-/* 🔥 BOTTOM NAV */
+/* BOTTOM NAV */
 .bottom{
  position:fixed;
  bottom:0;
@@ -70,16 +62,9 @@ img,video{
  padding:10px;
 }
 
-.bottom button{
- font-size:18px;
- background:none;
-}
-
-/* CONTENT SPACE */
 #main{
  padding-bottom:70px;
 }
-
 </style>
 </head>
 
@@ -93,7 +78,6 @@ img,video{
 
 <div id="main" style="display:none">
 
-<!-- FEED -->
 <div id="feed">
 
 <div class="card">
@@ -125,24 +109,20 @@ img,video{
 
 </div>
 
-<!-- PROFILE -->
 <div id="profile" style="display:none">
 <h2 id="pname"></h2>
 </div>
 
-<!-- NOTIFICATIONS -->
 <div id="notify" style="display:none"></div>
 
-<!-- CHAT -->
 <div id="chat" style="display:none">
-<input id="chatUser" placeholder="User">
+<input id="chatUser">
 <button onclick="openChat()">Open</button>
 <div id="chatBox"></div>
 <input id="msg">
 <button onclick="sendMsg()">Send</button>
 </div>
 
-<!-- REELS -->
 <div id="reels" style="display:none">
 <input type="file" id="reelFile">
 <button onclick="uploadReel()">Upload</button>
@@ -151,7 +131,6 @@ img,video{
 
 </div>
 
-<!-- 🔥 BOTTOM NAV -->
 <div class="bottom">
 <button onclick="showFeed()">🏠</button>
 <button onclick="showProfile()">👤</button>
@@ -175,7 +154,7 @@ const db=getFirestore(app);
 
 let user="",chatUser="";
 
-/* LOGIN */
+/* LOGIN FIXED */
 window.login=async()=>{
  user=username.value.trim();
  if(!user)return;
@@ -191,6 +170,17 @@ window.login=async()=>{
    online:true,
    streak:0,
    lastClaim:0
+  });
+ }else{
+  let d=snap.data();
+
+  await updateDoc(ref,{
+   coins:d.coins ?? 0,
+   miningStart:d.miningStart ?? Date.now(),
+   mineLevel:d.mineLevel ?? 1,
+   online:true,
+   streak:d.streak ?? 0,
+   lastClaim:d.lastClaim ?? 0
   });
  }
 
@@ -219,27 +209,80 @@ window.startMining=async()=>{
  await updateDoc(ref,{miningStart:Date.now()});
 };
 
+/* COINS FIXED */
 async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- let coins=d.coins||0;
- let sec=(Date.now()-d.miningStart)/1000;
+ let coins = Number(d.coins || 0);
+ let start = Number(d.miningStart || Date.now());
+ let level = Number(d.mineLevel || 1);
 
- let speed=(20+(d.mineLevel-1)*4)/86400;
+ let sec = (Date.now()-start)/1000;
+ let speed = (20+(level-1)*4)/86400;
 
- let total=coins+(sec*speed);
+ let total = coins + (sec*speed);
+ if(isNaN(total)) total = coins;
 
- await updateDoc(ref,{coins:total,miningStart:Date.now()});
+ await updateDoc(ref,{
+  coins: total,
+  miningStart: Date.now()
+ });
 
- coinBal.innerText=total.toFixed(5);
+ coinBal.innerText = total.toFixed(5);
 }
 
 /* LEVEL */
 async function loadLevel(){
  let d=(await getDoc(doc(db,"users",user))).data();
- mineLevel.innerText=d.mineLevel;
+ mineLevel.innerText=d.mineLevel||1;
 }
+
+/* ONLINE STATUS FIX */
+function loadPosts(){
+ onSnapshot(collection(db,"posts"),async snap=>{
+  let html="";
+
+  for(const d of snap.docs){
+   let p=d.data();
+
+   let u=(await getDoc(doc(db,"users",p.user))).data();
+   let online=u?.online;
+
+   html+=`
+   <div class="card">
+   <b>${p.user} ${online?"🟢":"⚫"}</b>
+   <p>${p.text||""}</p>
+   ${p.image?`<img src="${p.image}">`:""}
+   ❤️ ${p.likes||0}
+   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
+   <div>${(p.comments||[]).join("<br>")}</div>
+   <input id="c-${d.id}">
+   <button onclick="sendComment('${d.id}')">Send</button>
+   </div>`;
+  }
+
+  posts.innerHTML=html;
+ });
+}
+
+/* LIKE */
+window.like=async(id,l)=>updateDoc(doc(db,"posts",id),{likes:l+1});
+
+/* COMMENT */
+window.sendComment=async(id)=>{
+ let i=document.getElementById("c-"+id);
+ let t=i.value;
+ if(!t)return;
+
+ let ref=doc(db,"posts",id);
+ let d=(await getDoc(ref)).data();
+ let c=d.comments||[];
+
+ c.push(user+": "+t);
+ await updateDoc(ref,{comments:c});
+ i.value="";
+};
 
 /* LEADERBOARD */
 function loadLeaderboard(){
@@ -250,7 +293,9 @@ function loadLeaderboard(){
   });
   arr.sort((a,b)=>b.c-a.c);
 
-  leaderboard.innerHTML=arr.slice(0,5).map((u,i)=>`${i+1}. ${u.n} - ${u.c.toFixed(5)}`).join("<br>");
+  leaderboard.innerHTML=arr.slice(0,5)
+   .map((u,i)=>`${i+1}. ${u.n} - ${u.c.toFixed(5)}`)
+   .join("<br>");
  });
 }
 
@@ -279,62 +324,6 @@ window.claimBonus=async()=>{
  });
 
  loadBonus();
-};
-
-/* POSTS */
-window.addPost=async()=>{
- let text=postText.value;
- let f=file.files[0];
-
- if(f){
-  let r=new FileReader();
-  r.onload=()=>addDoc(collection(db,"posts"),{user,text,image:r.result,likes:0,comments:[]});
-  r.readAsDataURL(f);
- }else{
-  addDoc(collection(db,"posts"),{user,text,image:"",likes:0,comments:[]});
- }
-
- postText.value="";
-};
-
-/* LOAD POSTS */
-function loadPosts(){
- onSnapshot(collection(db,"posts"),snap=>{
-  let html="";
-  snap.forEach(d=>{
-   let p=d.data();
-   html+=`
-   <div class="card">
-   <b>${p.user}</b>
-   <p>${p.text}</p>
-   ${p.image?`<img src="${p.image}">`:""}
-   ❤️ ${p.likes}
-   <button onclick="like('${d.id}',${p.likes})">Like</button>
-   <div>${(p.comments||[]).join("<br>")}</div>
-   <input id="c-${d.id}">
-   <button onclick="sendComment('${d.id}')">Send</button>
-   </div>`;
-  });
-  posts.innerHTML=html;
- });
-}
-
-/* LIKE */
-window.like=async(id,l)=>updateDoc(doc(db,"posts",id),{likes:l+1});
-
-/* COMMENT */
-window.sendComment=async(id)=>{
- let i=document.getElementById("c-"+id);
- let t=i.value;
- if(!t)return;
-
- let ref=doc(db,"posts",id);
- let d=(await getDoc(ref)).data();
- let c=d.comments||[];
-
- c.push(user+": "+t);
- await updateDoc(ref,{comments:c});
- i.value="";
 };
 
 </script>
