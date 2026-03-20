@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <style>
 body{
@@ -10,18 +11,16 @@ body{
  background:linear-gradient(90deg,#3ec6d3,#5fd3a3,#fce38a);
 }
 
-/* LOGIN */
-#loginBox{
- padding:20px;
-}
-
+/* INPUT FIX (ZOOM FIX) */
 input{
+ font-size:16px;
  width:80%;
  padding:12px;
  border-radius:20px;
  border:none;
 }
 
+/* BUTTON */
 button{
  background:#00ff88;
  border:none;
@@ -48,7 +47,7 @@ button{
  color:white;
 }
 
-/* BOTTOM NAV */
+/* NAV */
 .bottom{
  position:fixed;
  bottom:0;
@@ -95,21 +94,24 @@ button{
 
 </div>
 
-<!-- BOTTOM -->
+<!-- NAV -->
 <div class="bottom">
-<button onclick="goHome()">🏠</button>
-<button onclick="showProfile()">👤</button>
-<button onclick="showNotify()">🔔</button>
-<button onclick="showChat()">💬</button>
-<button onclick="showVideo()">🎥</button>
+<button onclick="alert('Home')">🏠</button>
+<button onclick="alert('Profile')">👤</button>
+<button onclick="alert('Notify')">🔔</button>
+<button onclick="alert('Chat')">💬</button>
+<button onclick="alert('Reels')">🎥</button>
 </div>
 
 <script type="module">
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import {getFirestore,collection,addDoc,doc,setDoc,getDoc,updateDoc,onSnapshot}
-from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import {
+ getFirestore,collection,addDoc,doc,setDoc,
+ getDoc,updateDoc,onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
+/* FIREBASE */
 const app = initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
  projectId:"nature-connect-a1592"
@@ -118,43 +120,51 @@ const app = initializeApp({
 const db = getFirestore(app);
 
 let user = "";
+let miningInterval = null;
 
 /* LOGIN */
 window.login = async () => {
- user = username.value.trim();
+
+ user = document.getElementById("username").value.trim();
 
  if(!user){
   alert("Enter name");
   return;
  }
 
- const ref = doc(db,"users",user);
- const snap = await getDoc(ref);
+ try{
+  const ref = doc(db,"users",user);
+  const snap = await getDoc(ref);
 
- if(!snap.exists()){
-  await setDoc(ref,{
-   coins:0,
-   wallet:0,
-   miningStart:0,
-   miningActive:false,
-   online:true
-  });
- }else{
-  await updateDoc(ref,{online:true});
+  if(!snap.exists()){
+   await setDoc(ref,{
+    coins:0,
+    wallet:0,
+    miningStart:0,
+    miningActive:false,
+    online:true
+   });
+  }else{
+   await updateDoc(ref,{online:true});
+  }
+
+  document.getElementById("loginBox").style.display="none";
+  document.getElementById("main").style.display="block";
+  status.innerText="Online";
+
+  loadUser();
+
+  if(!miningInterval){
+   miningInterval = setInterval(updateMining,1000);
+  }
+
+ }catch(e){
+  alert("Error: "+e.message);
  }
-
- status.innerText = "Online";
-
- loginBox.style.display = "none";
- main.style.display = "block";
-
- loadUser();
-
- setInterval(updateMining,1000);
 };
 
-/* MINING START */
-window.startMining = async () => {
+/* START MINING */
+window.startMining = async ()=>{
  let ref = doc(db,"users",user);
 
  await updateDoc(ref,{
@@ -163,33 +173,32 @@ window.startMining = async () => {
  });
 };
 
-/* MINING SYSTEM */
+/* MINING */
 async function updateMining(){
 
- let ref = doc(db,"users",user);
- let d = (await getDoc(ref)).data();
+ try{
+  let ref = doc(db,"users",user);
+  let snap = await getDoc(ref);
+  let d = snap.data();
 
- if(!d || !d.miningActive) return;
+  if(!d || !d.miningActive) return;
 
- let now = Date.now();
- let start = d.miningStart || now;
+  let now = Date.now();
+  let diff = (now - d.miningStart)/1000;
 
- let coins = d.coins || 0;
+  let rate = 20/86400;
+  let earned = diff * rate;
 
- let diff = (now - start)/1000;
+  let newCoins = (d.coins || 0) + earned;
 
- let rate = 20/86400;
+  await updateDoc(ref,{
+   coins:newCoins,
+   miningStart:now
+  });
 
- let earned = diff * rate;
-
- let newCoins = coins + earned;
-
- await updateDoc(ref,{
-  coins:newCoins,
-  miningStart:now
- });
-
- coinBal.innerText = newCoins.toFixed(5);
+ }catch(e){
+  console.log("Mining error:",e);
+ }
 }
 
 /* LOAD USER */
@@ -206,7 +215,7 @@ function loadUser(){
 }
 
 /* POSTS */
-window.addPost = async () => {
+window.addPost = async ()=>{
  if(!postText.value) return;
 
  await addDoc(collection(db,"posts"),{
@@ -234,7 +243,7 @@ onSnapshot(collection(db,"posts"),snap=>{
 
   ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
 
-  <input id="c-${docu.id}" placeholder="comment">
+  <input id="c-${docu.id}">
   <button onclick="comment('${docu.id}')">Send</button>
   </div>
   `;
@@ -267,13 +276,6 @@ window.comment = async(id)=>{
 
  input.value="";
 };
-
-/* NAV BUTTONS */
-window.goHome=()=>alert("Home");
-window.showProfile=()=>alert("Profile");
-window.showNotify=()=>alert("Notifications");
-window.showChat=()=>alert("Chat");
-window.showVideo=()=>alert("Reels");
 
 </script>
 
