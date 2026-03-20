@@ -7,34 +7,48 @@
 body{
  margin:0;
  font-family:sans-serif;
- background:linear-gradient(120deg,#3ec6d3,#5fd3a3,#fce38a);
- color:#003b2f;
+ background:linear-gradient(90deg,#3ec6d3,#5fd3a3,#fce38a);
 }
 
-.card{
- background:rgba(0,0,0,0.5);
- color:white;
- padding:15px;
- margin:10px;
- border-radius:15px;
+/* LOGIN */
+#loginBox{
+ padding:20px;
+}
+
+input{
+ width:80%;
+ padding:12px;
+ border-radius:20px;
+ border:none;
 }
 
 button{
  background:#00ff88;
  border:none;
- padding:10px 15px;
+ padding:10px 20px;
  border-radius:20px;
- font-weight:bold;
+ margin-top:10px;
 }
 
-input{
- width:80%;
+/* CARDS */
+.card{
+ background:rgba(0,0,0,0.5);
+ color:white;
+ margin:10px;
+ padding:15px;
+ border-radius:15px;
+}
+
+/* POSTS */
+.post{
+ background:rgba(0,0,0,0.6);
  padding:10px;
- border-radius:20px;
- border:none;
- margin:5px;
+ margin:10px;
+ border-radius:10px;
+ color:white;
 }
 
+/* BOTTOM NAV */
 .bottom{
  position:fixed;
  bottom:0;
@@ -44,17 +58,19 @@ input{
  justify-content:space-around;
  padding:10px;
 }
-
 </style>
 </head>
 
 <body>
 
+<!-- LOGIN -->
 <div id="loginBox">
 <input id="username" placeholder="Enter name">
+<br>
 <button onclick="login()">Login</button>
 </div>
 
+<!-- MAIN -->
 <div id="main" style="display:none">
 
 <div class="card">
@@ -70,15 +86,22 @@ input{
 🟢 Status: <span id="status">Offline</span>
 </div>
 
+<div class="card">
 <input id="postText" placeholder="Write post">
 <button onclick="addPost()">Post</button>
+</div>
 
 <div id="posts"></div>
 
 </div>
 
+<!-- BOTTOM -->
 <div class="bottom">
-<button onclick="location.reload()">🏠</button>
+<button onclick="goHome()">🏠</button>
+<button onclick="showProfile()">👤</button>
+<button onclick="showNotify()">🔔</button>
+<button onclick="showChat()">💬</button>
+<button onclick="showVideo()">🎥</button>
 </div>
 
 <script type="module">
@@ -87,22 +110,26 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase
 import {getFirestore,collection,addDoc,doc,setDoc,getDoc,updateDoc,onSnapshot}
 from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-const app=initializeApp({
+const app = initializeApp({
  apiKey:"AIzaSyDRwZnpg6UnoBhafPNlEWWAYRVikQyHQTk",
  projectId:"nature-connect-a1592"
 });
 
-const db=getFirestore(app);
+const db = getFirestore(app);
 
-let user="";
+let user = "";
 
 /* LOGIN */
-window.login=async()=>{
- user=username.value.trim();
- if(!user) return;
+window.login = async () => {
+ user = username.value.trim();
 
- let ref=doc(db,"users",user);
- let snap=await getDoc(ref);
+ if(!user){
+  alert("Enter name");
+  return;
+ }
+
+ const ref = doc(db,"users",user);
+ const snap = await getDoc(ref);
 
  if(!snap.exists()){
   await setDoc(ref,{
@@ -116,17 +143,19 @@ window.login=async()=>{
   await updateDoc(ref,{online:true});
  }
 
- status.innerText="Online";
+ status.innerText = "Online";
 
- loginBox.style.display="none";
- main.style.display="block";
+ loginBox.style.display = "none";
+ main.style.display = "block";
 
  loadUser();
+
+ setInterval(updateMining,1000);
 };
 
-/* START MINING */
-window.startMining=async()=>{
- let ref=doc(db,"users",user);
+/* MINING START */
+window.startMining = async () => {
+ let ref = doc(db,"users",user);
 
  await updateDoc(ref,{
   miningStart:Date.now(),
@@ -134,106 +163,117 @@ window.startMining=async()=>{
  });
 };
 
-/* AUTO MINING (24H SYSTEM) */
+/* MINING SYSTEM */
 async function updateMining(){
 
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
+ let ref = doc(db,"users",user);
+ let d = (await getDoc(ref)).data();
 
- if(!d.miningActive) return;
+ if(!d || !d.miningActive) return;
 
- let now=Date.now();
- let start=d.miningStart || now;
+ let now = Date.now();
+ let start = d.miningStart || now;
 
- let coins=d.coins || 0;
+ let coins = d.coins || 0;
 
- let diff=(now - start)/1000;
+ let diff = (now - start)/1000;
 
- let rate=20/86400; // 20 QNC per 24h
+ let rate = 20/86400;
 
- let earned=diff * rate;
+ let earned = diff * rate;
 
- let newCoins=coins + earned;
+ let newCoins = coins + earned;
 
  await updateDoc(ref,{
   coins:newCoins,
   miningStart:now
  });
 
- coinBal.innerText=newCoins.toFixed(5);
+ coinBal.innerText = newCoins.toFixed(5);
 }
-
-/* RUN EVERY SECOND */
-setInterval(updateMining,1000);
 
 /* LOAD USER */
 function loadUser(){
- let ref=doc(db,"users",user);
+ let ref = doc(db,"users",user);
 
  onSnapshot(ref,(snap)=>{
-  let d=snap.data();
+  let d = snap.data();
+  if(!d) return;
 
-  coinBal.innerText=(d.coins||0).toFixed(5);
-  walletBal.innerText=(d.wallet||0).toFixed(5);
+  coinBal.innerText = (d.coins||0).toFixed(5);
+  walletBal.innerText = (d.wallet||0).toFixed(5);
  });
 }
 
 /* POSTS */
-window.addPost=async()=>{
- addDoc(collection(db,"posts"),{
+window.addPost = async () => {
+ if(!postText.value) return;
+
+ await addDoc(collection(db,"posts"),{
   user,
   text:postText.value,
   likes:0,
   comments:[]
  });
+
+ postText.value="";
 };
 
 onSnapshot(collection(db,"posts"),snap=>{
  let html="";
- snap.forEach(d=>{
-  let p=d.data();
+ snap.forEach(docu=>{
+  let p = docu.data();
 
-  html+=`
-  <div class="card">
+  html += `
+  <div class="post">
   <b>${p.user}</b>
   <p>${p.text}</p>
 
   ❤️ ${p.likes}
-  <button onclick="likePost('${d.id}',${p.likes})">Like</button>
+  <button onclick="likePost('${docu.id}',${p.likes})">Like</button>
 
   ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
 
-  <input id="c-${d.id}">
-  <button onclick="comment('${d.id}')">Send</button>
+  <input id="c-${docu.id}" placeholder="comment">
+  <button onclick="comment('${docu.id}')">Send</button>
   </div>
   `;
  });
 
- posts.innerHTML=html;
+ posts.innerHTML = html;
 });
 
 /* LIKE */
-window.likePost=async(id,likes)=>{
+window.likePost = async(id,likes)=>{
  await updateDoc(doc(db,"posts",id),{
   likes:likes+1
  });
 };
 
 /* COMMENT */
-window.comment=async(id)=>{
- let input=document.getElementById("c-"+id);
- let text=input.value;
+window.comment = async(id)=>{
+ let input = document.getElementById("c-"+id);
+ let text = input.value;
 
- let ref=doc(db,"posts",id);
- let d=(await getDoc(ref)).data();
+ if(!text) return;
 
- let c=d.comments||[];
- c.push(user+": "+text);
+ let ref = doc(db,"posts",id);
+ let d = (await getDoc(ref)).data();
 
- await updateDoc(ref,{comments:c});
+ let arr = d.comments || [];
+ arr.push(user+": "+text);
+
+ await updateDoc(ref,{comments:arr});
 
  input.value="";
 };
+
+/* NAV BUTTONS */
+window.goHome=()=>alert("Home");
+window.showProfile=()=>alert("Profile");
+window.showNotify=()=>alert("Notifications");
+window.showChat=()=>alert("Chat");
+window.showVideo=()=>alert("Reels");
 
 </script>
 
