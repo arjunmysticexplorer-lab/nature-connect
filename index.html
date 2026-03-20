@@ -45,6 +45,12 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="upgradeMining()">Upgrade</button>
 </div>
 
+<!-- 🔥 LEADERBOARD -->
+<div class="card">
+<h3>🏆 Leaderboard</h3>
+<div id="leaderboard"></div>
+</div>
+
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
@@ -108,9 +114,10 @@ window.login=async()=>{
  loadCoins();
  loadLevel();
  loadReels();
+ loadLeaderboard(); // 🔥 ADD
 };
 
-// NAVIGATION
+// NAV
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
 window.showProfile=()=>{profile.style.display="block";feed.style.display="none";pname.innerText=user;}
 window.showNotifications=()=>{notify.style.display="block";feed.style.display="none";}
@@ -155,6 +162,7 @@ async function loadLevel(){
  mineLevel.innerText=d.mineLevel||1;
 }
 
+// UPGRADE
 window.upgradeMining=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -171,6 +179,33 @@ window.upgradeMining=async()=>{
  loadCoins();
  loadLevel();
 };
+
+// 🔥 LEADERBOARD FUNCTION
+function loadLeaderboard(){
+ onSnapshot(collection(db,"users"),(snap)=>{
+
+  let users=[];
+
+  snap.forEach(d=>{
+   let data=d.data();
+   users.push({
+    name:d.id,
+    coins:data.coins||0
+   });
+  });
+
+  users.sort((a,b)=>b.coins-a.coins);
+
+  let html="";
+
+  users.slice(0,10).forEach((u,i)=>{
+   html+=`<div>${i+1}. ${u.name} — ${u.coins.toFixed(5)} QNC</div>`;
+  });
+
+  leaderboard.innerHTML=html;
+
+ });
+}
 
 // POSTS
 window.addPost=async()=>{
