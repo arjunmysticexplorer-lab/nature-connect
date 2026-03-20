@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body{
@@ -11,70 +10,56 @@ body{
  background:linear-gradient(90deg,#3ec6d3,#5fd3a3,#fce38a);
 }
 
-/* INPUT FIX (ZOOM FIX) */
-input{
- font-size:16px;
- width:80%;
- padding:12px;
- border-radius:20px;
- border:none;
-}
+/* zoom fix */
+input{font-size:16px;}
 
-/* BUTTON */
-button{
- background:#00ff88;
- border:none;
- padding:10px 20px;
- border-radius:20px;
- margin-top:10px;
-}
-
-/* CARDS */
+/* UI */
 .card{
- background:rgba(0,0,0,0.5);
+ background:rgba(0,0,0,0.6);
  color:white;
  margin:10px;
  padding:15px;
  border-radius:15px;
 }
 
-/* POSTS */
-.post{
- background:rgba(0,0,0,0.6);
- padding:10px;
- margin:10px;
- border-radius:10px;
- color:white;
+button{
+ background:#00ff88;
+ border:none;
+ padding:10px 20px;
+ border-radius:20px;
+ margin-top:5px;
 }
 
-/* NAV */
-.bottom{
- position:fixed;
- bottom:0;
- width:100%;
- background:#000;
- display:flex;
- justify-content:space-around;
+.post{
+ background:rgba(0,0,0,0.7);
+ margin:10px;
  padding:10px;
+ border-radius:10px;
+ color:white;
 }
 </style>
 </head>
 
 <body>
 
+<!-- HEADER -->
+<div style="padding:10px;font-weight:bold;">
+🌍 Nature Connect
+</div>
+
 <!-- LOGIN -->
-<div id="loginBox">
+<div id="loginBox" style="padding:20px;">
 <input id="username" placeholder="Enter name">
 <br>
 <button onclick="login()">Login</button>
 </div>
 
 <!-- MAIN -->
-<div id="main" style="display:none">
+<div id="main" style="display:none;">
 
 <div class="card">
 💰 QNC: <span id="coinBal">0.00000</span><br>
-<button onclick="startMining()">⛏️ Start Mining (24h)</button>
+<button onclick="startMining()">⛏️ Start Mining</button>
 </div>
 
 <div class="card">
@@ -94,15 +79,6 @@ button{
 
 </div>
 
-<!-- NAV -->
-<div class="bottom">
-<button onclick="alert('Home')">🏠</button>
-<button onclick="alert('Profile')">👤</button>
-<button onclick="alert('Notify')">🔔</button>
-<button onclick="alert('Chat')">💬</button>
-<button onclick="alert('Reels')">🎥</button>
-</div>
-
 <script type="module">
 
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
@@ -119,12 +95,11 @@ const app = initializeApp({
 
 const db = getFirestore(app);
 
-let user = "";
-let miningInterval = null;
+let user="";
+let miningInterval=null;
 
 /* LOGIN */
-window.login = async () => {
-
+window.login = async ()=>{
  user = document.getElementById("username").value.trim();
 
  if(!user){
@@ -132,34 +107,30 @@ window.login = async () => {
   return;
  }
 
- try{
-  const ref = doc(db,"users",user);
-  const snap = await getDoc(ref);
+ const ref = doc(db,"users",user);
+ const snap = await getDoc(ref);
 
-  if(!snap.exists()){
-   await setDoc(ref,{
-    coins:0,
-    wallet:0,
-    miningStart:0,
-    miningActive:false,
-    online:true
-   });
-  }else{
-   await updateDoc(ref,{online:true});
-  }
+ if(!snap.exists()){
+  await setDoc(ref,{
+   coins:0,
+   wallet:0,
+   miningStart:0,
+   miningActive:false,
+   online:true
+  });
+ }else{
+  await updateDoc(ref,{online:true});
+ }
 
-  document.getElementById("loginBox").style.display="none";
-  document.getElementById("main").style.display="block";
-  status.innerText="Online";
+ document.getElementById("loginBox").style.display="none";
+ document.getElementById("main").style.display="block";
 
-  loadUser();
+ document.getElementById("status").innerText="Online";
 
-  if(!miningInterval){
-   miningInterval = setInterval(updateMining,1000);
-  }
+ loadUser();
 
- }catch(e){
-  alert("Error: "+e.message);
+ if(!miningInterval){
+  miningInterval = setInterval(updateMining,1000);
  }
 };
 
@@ -173,32 +144,26 @@ window.startMining = async ()=>{
  });
 };
 
-/* MINING */
+/* MINING SYSTEM */
 async function updateMining(){
+ let ref = doc(db,"users",user);
+ let snap = await getDoc(ref);
+ let d = snap.data();
 
- try{
-  let ref = doc(db,"users",user);
-  let snap = await getDoc(ref);
-  let d = snap.data();
+ if(!d || !d.miningActive) return;
 
-  if(!d || !d.miningActive) return;
+ let now = Date.now();
+ let diff = (now - d.miningStart)/1000;
 
-  let now = Date.now();
-  let diff = (now - d.miningStart)/1000;
+ let rate = 20/86400;
+ let earned = diff * rate;
 
-  let rate = 20/86400;
-  let earned = diff * rate;
+ let newCoins = (d.coins||0) + earned;
 
-  let newCoins = (d.coins || 0) + earned;
-
-  await updateDoc(ref,{
-   coins:newCoins,
-   miningStart:now
-  });
-
- }catch(e){
-  console.log("Mining error:",e);
- }
+ await updateDoc(ref,{
+  coins:newCoins,
+  miningStart:now
+ });
 }
 
 /* LOAD USER */
@@ -209,25 +174,27 @@ function loadUser(){
   let d = snap.data();
   if(!d) return;
 
-  coinBal.innerText = (d.coins||0).toFixed(5);
-  walletBal.innerText = (d.wallet||0).toFixed(5);
+  document.getElementById("coinBal").innerText = (d.coins||0).toFixed(5);
+  document.getElementById("walletBal").innerText = (d.wallet||0).toFixed(5);
  });
 }
 
-/* POSTS */
+/* ADD POST */
 window.addPost = async ()=>{
- if(!postText.value) return;
+ let text = document.getElementById("postText").value;
+ if(!text) return;
 
  await addDoc(collection(db,"posts"),{
   user,
-  text:postText.value,
+  text,
   likes:0,
   comments:[]
  });
 
- postText.value="";
+ document.getElementById("postText").value="";
 };
 
+/* LOAD POSTS */
 onSnapshot(collection(db,"posts"),snap=>{
  let html="";
  snap.forEach(docu=>{
@@ -238,8 +205,8 @@ onSnapshot(collection(db,"posts"),snap=>{
   <b>${p.user}</b>
   <p>${p.text}</p>
 
-  ❤️ ${p.likes}
-  <button onclick="likePost('${docu.id}',${p.likes})">Like</button>
+  ❤️ ${p.likes||0}
+  <button onclick="likePost('${docu.id}',${p.likes||0})">Like</button>
 
   ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
 
@@ -249,7 +216,7 @@ onSnapshot(collection(db,"posts"),snap=>{
   `;
  });
 
- posts.innerHTML = html;
+ document.getElementById("posts").innerHTML = html;
 });
 
 /* LIKE */
@@ -269,7 +236,7 @@ window.comment = async(id)=>{
  let ref = doc(db,"posts",id);
  let d = (await getDoc(ref)).data();
 
- let arr = d.comments || [];
+ let arr = d.comments||[];
  arr.push(user+": "+text);
 
  await updateDoc(ref,{comments:arr});
