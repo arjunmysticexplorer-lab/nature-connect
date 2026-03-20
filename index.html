@@ -33,30 +33,16 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 
 <div id="main" style="display:none">
 
-<!-- FEED -->
 <div id="feed">
 
 <div class="card">
-💰 QNC: <span id="coinBal">0.00000</span><br><br>
-<button onclick="startMining()">⛏️ Start Mining (24h)</button>
+💰 QNC: <span id="coinBal">0.00000</span><br>
+<button onclick="startMining()">⛏️ Start Mining</button>
 </div>
 
 <div class="card">
-<h3>⚡ Upgrade</h3>
+⚡ Level: <span id="mineLevel">1</span>
 <button onclick="upgradeMining()">Upgrade</button>
-<p>Level: <span id="mineLevel">1</span></p>
-</div>
-
-<div class="card">
-<input id="sendUser" placeholder="Send user">
-<input id="sendAmount" type="number">
-<button onclick="sendCoins()">Send</button>
-</div>
-
-<div class="card">
-<input id="withdrawAmount" type="number">
-<button onclick="withdrawRequest()">Withdraw</button>
-<div id="withdrawList"></div>
 </div>
 
 <input id="postText" placeholder="Write post">
@@ -64,26 +50,20 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="addPost()">Post</button>
 
 <div id="posts"></div>
+
 </div>
 
-<!-- PROFILE -->
-<div id="profile" style="display:none">
-<h2 id="pname"></h2>
-</div>
-
-<!-- NOTIFY -->
+<div id="profile" style="display:none"><h2 id="pname"></h2></div>
 <div id="notify" style="display:none"></div>
 
-<!-- CHAT -->
 <div id="chat" style="display:none">
-<input id="chatUser" placeholder="User">
+<input id="chatUser">
 <button onclick="openChat()">Open</button>
 <div id="chatBox"></div>
 <input id="msg">
 <button onclick="sendMsg()">Send</button>
 </div>
 
-<!-- REELS -->
 <div id="reels" style="display:none">
 <input type="file" id="reelFile">
 <button onclick="uploadReel()">Upload</button>
@@ -110,7 +90,7 @@ let user="",chatUser="";
 // LOGIN
 window.login=async()=>{
  user=username.value.trim();
- if(!user)return alert("Enter name");
+ if(!user)return;
 
  let ref=doc(db,"users",user);
  let snap=await getDoc(ref);
@@ -124,10 +104,13 @@ window.login=async()=>{
  loginBox.style.display="none";
  main.style.display="block";
 
- load();loadCoins();loadLevel();loadReels();loadWithdraws();
+ loadPosts();
+ loadCoins();
+ loadLevel();
+ loadReels();
 };
 
-// NAV
+// NAVIGATION
 window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
 window.showProfile=()=>{profile.style.display="block";feed.style.display="none";pname.innerText=user;}
 window.showNotifications=()=>{notify.style.display="block";feed.style.display="none";}
@@ -137,9 +120,9 @@ window.showReels=()=>{reels.style.display="block";feed.style.display="none";}
 // MINING
 window.startMining=async()=>{
  let ref=doc(db,"users",user);
- let data=(await getDoc(ref)).data();
+ let d=(await getDoc(ref)).data();
 
- if(data.miningStart)return alert("Already mining");
+ if(d.miningStart)return alert("Already mining");
 
  await updateDoc(ref,{miningStart:Date.now()});
 };
@@ -147,16 +130,16 @@ window.startMining=async()=>{
 // COINS
 async function loadCoins(){
  let ref=doc(db,"users",user);
- let data=(await getDoc(ref)).data();
+ let d=(await getDoc(ref)).data();
 
- let coins=data.coins||0;
- let start=data.miningStart;
+ let coins=d.coins||0;
+ let start=d.miningStart;
 
  if(start){
   let sec=Math.floor((Date.now()-start)/1000);
   if(sec>86400)sec=86400;
 
-  let speed=0.01*(data.mineLevel||1);
+  let speed=0.01*(d.mineLevel||1);
   let total=coins+(sec*speed);
 
   await updateDoc(ref,{coins:total,miningStart:null});
@@ -166,7 +149,7 @@ async function loadCoins(){
  }
 }
 
-// UPGRADE
+// LEVEL
 async function loadLevel(){
  let d=(await getDoc(doc(db,"users",user))).data();
  mineLevel.innerText=d.mineLevel||1;
@@ -176,62 +159,18 @@ window.upgradeMining=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- let lvl=d.mineLevel||1;
- let cost=lvl*50;
+ let cost=(d.mineLevel||1)*50;
 
  if(d.coins<cost)return alert("Low balance");
 
- await updateDoc(ref,{coins:d.coins-cost,mineLevel:lvl+1});
-
- loadCoins();loadLevel();
-};
-
-// WALLET
-window.sendCoins=async()=>{
- let to=sendUser.value;
- let amt=parseFloat(sendAmount.value);
-
- let sRef=doc(db,"users",user);
- let rRef=doc(db,"users",to);
-
- let s=(await getDoc(sRef)).data();
-
- if(s.coins<amt)return;
-
- await updateDoc(sRef,{coins:s.coins-amt});
-
- let r=(await getDoc(rRef)).data();
- await updateDoc(rRef,{coins:(r.coins||0)+amt});
-
- loadCoins();
-};
-
-// WITHDRAW
-window.withdrawRequest=async()=>{
- let amt=parseFloat(withdrawAmount.value);
-
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
-
- if(d.coins<amt)return;
-
- await updateDoc(ref,{coins:d.coins-amt});
-
- await addDoc(collection(db,"withdraws"),{user,amt,status:"pending"});
-
- loadCoins();
-};
-
-function loadWithdraws(){
- onSnapshot(collection(db,"withdraws"),s=>{
-  let h="";
-  s.forEach(d=>{
-   let w=d.data();
-   if(w.user===user)h+=`<div>${w.amt} - ${w.status}</div>`;
-  });
-  withdrawList.innerHTML=h;
+ await updateDoc(ref,{
+  coins:d.coins-cost,
+  mineLevel:(d.mineLevel||1)+1
  });
-}
+
+ loadCoins();
+ loadLevel();
+};
 
 // POSTS
 window.addPost=async()=>{
@@ -247,10 +186,42 @@ window.addPost=async()=>{
  }else{
   await addDoc(collection(db,"posts"),{user,text,image:"",likes:0,comments:[]});
  }
+
+ postText.value="";
 };
 
+// LOAD POSTS
+function loadPosts(){
+ onSnapshot(collection(db,"posts"),async s=>{
+  let html="";
+
+  for(const d of s.docs){
+   let p=d.data();
+
+   let u=(await getDoc(doc(db,"users",p.user))).data();
+   let online=u?.online;
+
+   html+=`
+   <div class="card">
+   <b>${p.user} ${online?"🟢":"⚫"}</b>
+   <p>${p.text||""}</p>
+   ${p.image?`<img src="${p.image}">`:""}
+   ❤️ ${p.likes||0}
+   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
+   <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
+   <input id="c-${d.id}">
+   <button onclick="sendComment('${d.id}')">Send</button>
+   </div>`;
+  }
+
+  posts.innerHTML=html;
+ });
+}
+
+// LIKE
 window.like=async(id,l)=>await updateDoc(doc(db,"posts",id),{likes:l+1});
 
+// COMMENT
 window.sendComment=async(id)=>{
  let i=document.getElementById("c-"+id);
  let t=i.value;
@@ -264,32 +235,6 @@ window.sendComment=async(id)=>{
  await updateDoc(ref,{comments:c});
  i.value="";
 };
-
-// LOAD POSTS
-function load(){
- onSnapshot(collection(db,"posts"),async s=>{
-  let html="";
-  for(const d of s.docs){
-   let p=d.data();
-
-   let u=(await getDoc(doc(db,"users",p.user))).data();
-   let online=u.online;
-
-   html+=`
-   <div class="card">
-   <b>${p.user} ${online?"🟢":"⚫"}</b>
-   <p>${p.text}</p>
-   ${p.image?`<img src="${p.image}">`:""}
-   ❤️ ${p.likes||0}
-   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
-   <div>${(p.comments||[]).map(x=>`<p>${x}</p>`).join("")}</div>
-   <input id="c-${d.id}">
-   <button onclick="sendComment('${d.id}')">Send</button>
-   </div>`;
-  }
-  posts.innerHTML=html;
- });
-}
 
 // CHAT
 window.openChat=()=>chatUser=document.getElementById("chatUser").value;
