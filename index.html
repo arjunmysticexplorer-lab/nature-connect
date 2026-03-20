@@ -3,13 +3,68 @@
 <head>
 <title>Nature Connect</title>
 
+<!-- 🔥 MOBILE FIX -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
 <style>
 body{margin:0;background:#071a07;color:white;font-family:sans-serif;}
-.top{display:flex;justify-content:space-between;padding:12px;background:#0c2b0c;}
-button{padding:8px;border:none;border-radius:20px;background:#00c853;color:white;margin:2px;}
-input{width:80%;padding:10px;border-radius:20px;border:none;background:#123812;color:white;margin:5px;}
-.card{background:#1b3b1b;padding:15px;border-radius:15px;margin:10px;}
-img,video{width:100%;border-radius:10px;margin-top:10px;}
+
+/* TOP BAR */
+.top{
+ display:flex;
+ justify-content:space-between;
+ padding:12px;
+ background:#0c2b0c;
+ align-items:center;
+}
+
+/* 🔥 ICON BUTTON FIX */
+.top button{
+ padding:10px 12px;
+ font-size:16px;
+ min-width:40px;
+ min-height:40px;
+ border-radius:50%;
+ background:#00c853;
+ color:white;
+ border:none;
+}
+
+/* BUTTON */
+button{
+ padding:8px;
+ border:none;
+ border-radius:20px;
+ background:#00c853;
+ color:white;
+ margin:2px;
+}
+
+/* 🔥 INPUT FIX (NO ZOOM) */
+input, textarea{
+ width:80%;
+ padding:10px;
+ border-radius:20px;
+ border:none;
+ background:#123812;
+ color:white;
+ margin:5px;
+ font-size:16px !important;
+}
+
+/* CARD */
+.card{
+ background:#1b3b1b;
+ padding:15px;
+ border-radius:15px;
+ margin:10px;
+}
+
+img,video{
+ width:100%;
+ border-radius:10px;
+ margin-top:10px;
+}
 </style>
 
 </head>
@@ -50,7 +105,6 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <div id="leaderboard"></div>
 </div>
 
-<!-- 🎁 DAILY BONUS -->
 <div class="card">
 <h3>🎁 Daily Bonus</h3>
 <p>🔥 Streak: <span id="streak">0</span> days</p>
@@ -148,7 +202,7 @@ window.startMining=async()=>{
  await updateDoc(ref,{miningStart:Date.now()});
 };
 
-// COINS (20 + 4 LEVEL)
+// COINS
 async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -215,14 +269,12 @@ function loadLeaderboard(){
  });
 }
 
-// 🎁 BONUS LOAD
+// BONUS
 async function loadBonus(){
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
- document.getElementById("streak").innerText = d.streak || 0;
+ let d=(await getDoc(doc(db,"users",user))).data();
+ streak.innerText=d.streak||0;
 }
 
-// 🎁 CLAIM BONUS
 window.claimBonus=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -259,7 +311,6 @@ window.claimBonus=async()=>{
  alert("+"+bonus.toFixed(2)+" QNC");
 
  loadBonus();
- loadCoins();
 };
 
 // POSTS
