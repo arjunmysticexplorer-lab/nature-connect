@@ -69,6 +69,7 @@ img,video{
 
 <div id="main" style="display:none">
 
+<!-- FEED -->
 <div id="feed">
 
 <div class="card">
@@ -92,7 +93,7 @@ img,video{
 <button onclick="claimBonus()">Claim</button>
 </div>
 
-<input id="postText">
+<input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
 
@@ -145,6 +146,8 @@ let watchTimer=null;
 /* LOGIN */
 window.login=async()=>{
  user=username.value.trim();
+ if(!user)return;
+
  let ref=doc(db,"users",user);
  let snap=await getDoc(ref);
 
@@ -153,37 +156,46 @@ window.login=async()=>{
    coins:0,
    miningStart:Date.now(),
    mineLevel:1,
+   online:true,
    streak:0,
    lastClaim:0,
    reelToday:0,
    likeToday:0,
    lastReset:Date.now()
   });
- }
+ }else{
+  let d=snap.data();
 
- let d=(await getDoc(ref)).data();
-
- // RESET DAILY LIMIT
- if(Date.now()-d.lastReset>86400000){
   await updateDoc(ref,{
-   reelToday:0,
-   likeToday:0,
-   lastReset:Date.now()
+   coins:d.coins ?? 0,
+   miningStart:d.miningStart ?? Date.now(),
+   mineLevel:d.mineLevel ?? 1,
+   online:true,
+   streak:d.streak ?? 0,
+   lastClaim:d.lastClaim ?? 0,
+   reelToday:d.reelToday ?? 0,
+   likeToday:d.likeToday ?? 0,
+   lastReset:d.lastReset ?? Date.now()
   });
  }
 
  loginBox.style.display="none";
  main.style.display="block";
 
+ loadAll();
+
+ setInterval(loadCoins,1000);
+};
+
+/* LOAD ALL */
+function loadAll(){
  loadCoins();
  loadLevel();
  loadLeaderboard();
  loadBonus();
  loadPosts();
  loadReels();
-
- setInterval(loadCoins,1000);
-};
+}
 
 /* NAV */
 window.showFeed=()=>{feed.style.display="block";reels.style.display="none";}
@@ -195,17 +207,20 @@ window.startMining=async()=>{
 };
 
 async function loadCoins(){
- let d=(await getDoc(doc(db,"users",user))).data();
+ let ref=doc(db,"users",user);
+ let d=(await getDoc(ref)).data();
 
- let sec=(Date.now()-d.miningStart)/1000;
- let speed=(20+(d.mineLevel-1)*4)/86400;
+ let coins=Number(d.coins||0);
+ let start=Number(d.miningStart||Date.now());
+ let level=Number(d.mineLevel||1);
 
- let total=(d.coins||0)+(sec*speed);
+ let sec=(Date.now()-start)/1000;
+ let speed=(20+(level-1)*4)/86400;
 
- await updateDoc(doc(db,"users",user),{
-  coins:total,
-  miningStart:Date.now()
- });
+ let total=coins+(sec*speed);
+ if(isNaN(total)) total=coins;
+
+ await updateDoc(ref,{coins:total,miningStart:Date.now()});
 
  coinBal.innerText=total.toFixed(5);
 }
@@ -213,71 +228,74 @@ async function loadCoins(){
 /* LEVEL */
 async function loadLevel(){
  let d=(await getDoc(doc(db,"users",user))).data();
- mineLevel.innerText=d.mineLevel;
+ mineLevel.innerText=d.mineLevel||1;
 }
 
-/* LEADERBOARD */
-function loadLeaderboard(){
- onSnapshot(collection(db,"users"),snap=>{
-  let arr=[];
-  snap.forEach(d=>arr.push({n:d.id,c:d.data().coins||0}));
-  arr.sort((a,b)=>b.c-a.c);
+/* POSTS FULL FIX */
+function loadPosts(){
+ onSnapshot(collection(db,"posts"), async snap=>{
+  let html="";
 
-  leaderboard.innerHTML=arr.slice(0,5)
-   .map((u,i)=>`${i+1}. ${u.n} - ${u.c.toFixed(5)}`)
-   .join("<br>");
+  for(const d of snap.docs){
+   let p=d.data();
+   let u=(await getDoc(doc(db,"users",p.user))).data();
+
+   html+=`
+   <div class="card">
+   <b>${p.user} ${u?.online?"🟢":"⚫"}</b>
+
+   <p>${p.text||""}</p>
+
+   ${p.image?`<img src="${p.image}">`:""}
+
+   ❤️ ${p.likes||0}
+   <button onclick="likePost('${d.id}',${p.likes||0})">Like</button>
+
+   <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
+
+   <input id="c-${d.id}">
+   <button onclick="sendComment('${d.id}')">Send</button>
+   </div>`;
+  }
+
+  posts.innerHTML=html;
  });
 }
 
-/* BONUS */
-async function loadBonus(){
- let d=(await getDoc(doc(db,"users",user))).data();
- streak.innerText=d.streak;
-}
-
-window.claimBonus=async()=>{
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
-
- if(Date.now()-d.lastClaim<86400000)return alert("Wait");
-
- let s=(d.streak||0)+1;
- if(s>30)s=1;
-
- await updateDoc(ref,{
-  coins:d.coins+(s*0.1),
-  streak:s,
-  lastClaim:Date.now()
- });
-
- loadBonus();
+/* LIKE */
+window.likePost=async(id,likes)=>{
+ await updateDoc(doc(db,"posts",id),{likes:likes+1});
 };
 
-/* POSTS */
+/* COMMENT */
+window.sendComment=async(id)=>{
+ let i=document.getElementById("c-"+id);
+ let t=i.value;
+ if(!t)return;
+
+ let ref=doc(db,"posts",id);
+ let d=(await getDoc(ref)).data();
+
+ let c=d.comments||[];
+ c.push(user+": "+t);
+
+ await updateDoc(ref,{comments:c});
+ i.value="";
+};
+
+/* ADD POST */
 window.addPost=async()=>{
  let text=postText.value;
  let f=file.files[0];
 
  if(f){
   let r=new FileReader();
-  r.onload=()=>addDoc(collection(db,"posts"),{user,text,image:r.result});
+  r.onload=()=>addDoc(collection(db,"posts"),{user,text,image:r.result,likes:0,comments:[]});
   r.readAsDataURL(f);
  }else{
-  addDoc(collection(db,"posts"),{user,text});
+  addDoc(collection(db,"posts"),{user,text,likes:0,comments:[]});
  }
 };
-
-/* LOAD POSTS */
-function loadPosts(){
- onSnapshot(collection(db,"posts"),snap=>{
-  let html="";
-  snap.forEach(d=>{
-   let p=d.data();
-   html+=`<div class="card">${p.user}<p>${p.text}</p>${p.image?`<img src="${p.image}">`:""}</div>`;
-  });
-  posts.innerHTML=html;
- });
-}
 
 /* REELS */
 window.uploadReel=async()=>{
@@ -291,20 +309,18 @@ function loadReels(){
  onSnapshot(collection(db,"reels"),snap=>{
   reelsList=[];
   snap.forEach(d=>reelsList.push({id:d.id,...d.data()}));
-  showReel(0);
+  if(reelsList.length>0)showReel(0);
  });
 }
 
 function showReel(i){
- if(reelsList.length===0)return;
-
  currentReel=i;
  let r=reelsList[i];
 
  reelPlayer.innerHTML=`
  <video src="${r.video}" autoplay controls></video>
  <p>${r.user}</p>
- <button onclick="likeReel('${r.id}')">❤️</button>
+ <button onclick="likeReel()">❤️</button>
  `;
 
  startWatch();
@@ -313,7 +329,7 @@ function showReel(i){
 window.nextReel=()=>{if(currentReel<reelsList.length-1)showReel(currentReel+1);}
 window.prevReel=()=>{if(currentReel>0)showReel(currentReel-1);}
 
-/* WATCH EARNING */
+/* WATCH */
 function startWatch(){
  if(watchTimer)clearInterval(watchTimer);
 
@@ -331,17 +347,54 @@ function startWatch(){
  },5000);
 }
 
-/* LIKE */
+/* LIKE REEL */
 window.likeReel=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- if(d.likeToday>=0.1)return alert("Limit");
+ if(d.likeToday>=0.1)return;
 
  await updateDoc(ref,{
   coins:d.coins+0.002,
   likeToday:d.likeToday+0.002
  });
+};
+
+/* LEADERBOARD */
+function loadLeaderboard(){
+ onSnapshot(collection(db,"users"),snap=>{
+  let arr=[];
+  snap.forEach(d=>arr.push({n:d.id,c:d.data().coins||0}));
+  arr.sort((a,b)=>b.c-a.c);
+
+  leaderboard.innerHTML=arr.slice(0,5)
+   .map((u,i)=>`${i+1}. ${u.n} - ${u.c.toFixed(5)}`)
+   .join("<br>");
+ });
+}
+
+/* BONUS */
+async function loadBonus(){
+ let d=(await getDoc(doc(db,"users",user))).data();
+ streak.innerText=d.streak||0;
+}
+
+window.claimBonus=async()=>{
+ let ref=doc(db,"users",user);
+ let d=(await getDoc(ref)).data();
+
+ if(Date.now()-d.lastClaim<86400000)return;
+
+ let s=(d.streak||0)+1;
+ if(s>30)s=1;
+
+ await updateDoc(ref,{
+  coins:d.coins+(s*0.1),
+  streak:s,
+  lastClaim:Date.now()
+ });
+
+ loadBonus();
 };
 
 </script>
