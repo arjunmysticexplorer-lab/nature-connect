@@ -101,7 +101,7 @@ window.login=async()=>{
  let snap=await getDoc(ref);
 
  if(!snap.exists()){
-  await setDoc(ref,{coins:0,miningStart:null,mineLevel:1,online:true});
+  await setDoc(ref,{coins:0,miningStart:Date.now(),mineLevel:1,online:true});
  }else{
   await updateDoc(ref,{online:true});
  }
@@ -114,6 +114,9 @@ window.login=async()=>{
  loadLevel();
  loadReels();
  loadLeaderboard();
+
+ // 🔥 REAL TIME UPDATE
+ setInterval(loadCoins,1000);
 };
 
 // NAV
@@ -128,37 +131,34 @@ window.startMining=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- if(d.miningStart)return alert("Already mining");
+ if(d.miningStart)return;
 
  await updateDoc(ref,{miningStart:Date.now()});
 };
 
-// 🔥 FINAL COIN SYSTEM (20 + 4 LEVEL)
+// 🔥 FINAL MINING SYSTEM (CONTINUOUS + SAFE)
 async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
  let coins=d.coins||0;
- let start=d.miningStart;
+ let start=d.miningStart||Date.now();
 
- if(start){
-  let sec=Math.floor((Date.now()-start)/1000);
-  if(sec>86400)sec=86400;
+ let sec=Math.floor((Date.now()-start)/1000);
 
-  let level=d.mineLevel||1;
+ let level=d.mineLevel||1;
+ let daily=20 + (level-1)*4;
 
-  let daily=20 + (level-1)*4;
+ let speed=daily/86400;
 
-  let speed=daily/86400;
+ let total=coins+(sec*speed);
 
-  let total=coins+(sec*speed);
+ await updateDoc(ref,{
+  coins:total,
+  miningStart:Date.now() // 🔥 RESET TIMER FOR CONTINUOUS
+ });
 
-  await updateDoc(ref,{coins:total,miningStart:null});
-
-  coinBal.innerText=total.toFixed(5);
- }else{
-  coinBal.innerText=coins.toFixed(5);
- }
+ coinBal.innerText=total.toFixed(5);
 }
 
 // LEVEL
@@ -181,7 +181,6 @@ window.upgradeMining=async()=>{
   mineLevel:(d.mineLevel||1)+1
  });
 
- loadCoins();
  loadLevel();
 };
 
