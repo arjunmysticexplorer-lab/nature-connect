@@ -50,6 +50,13 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <div id="leaderboard"></div>
 </div>
 
+<!-- 🎁 DAILY BONUS -->
+<div class="card">
+<h3>🎁 Daily Bonus</h3>
+<p>🔥 Streak: <span id="streak">0</span> days</p>
+<button onclick="claimBonus()">Claim Bonus</button>
+</div>
+
 <input id="postText" placeholder="Write post">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
@@ -101,7 +108,14 @@ window.login=async()=>{
  let snap=await getDoc(ref);
 
  if(!snap.exists()){
-  await setDoc(ref,{coins:0,miningStart:Date.now(),mineLevel:1,online:true});
+  await setDoc(ref,{
+   coins:0,
+   miningStart:Date.now(),
+   mineLevel:1,
+   online:true,
+   streak:0,
+   lastClaim:0
+  });
  }else{
   await updateDoc(ref,{online:true});
  }
@@ -114,8 +128,8 @@ window.login=async()=>{
  loadLevel();
  loadReels();
  loadLeaderboard();
+ loadBonus();
 
- // 🔥 REAL TIME UPDATE
  setInterval(loadCoins,1000);
 };
 
@@ -126,17 +140,15 @@ window.showNotifications=()=>{notify.style.display="block";feed.style.display="n
 window.showChat=()=>{chat.style.display="block";feed.style.display="none";}
 window.showReels=()=>{reels.style.display="block";feed.style.display="none";}
 
-// MINING START
+// MINING
 window.startMining=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
-
  if(d.miningStart)return;
-
  await updateDoc(ref,{miningStart:Date.now()});
 };
 
-// 🔥 FINAL MINING SYSTEM (CONTINUOUS + SAFE)
+// COINS (20 + 4 LEVEL)
 async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -155,7 +167,7 @@ async function loadCoins(){
 
  await updateDoc(ref,{
   coins:total,
-  miningStart:Date.now() // 🔥 RESET TIMER FOR CONTINUOUS
+  miningStart:Date.now()
  });
 
  coinBal.innerText=total.toFixed(5);
@@ -203,6 +215,53 @@ function loadLeaderboard(){
  });
 }
 
+// 🎁 BONUS LOAD
+async function loadBonus(){
+ let ref=doc(db,"users",user);
+ let d=(await getDoc(ref)).data();
+ document.getElementById("streak").innerText = d.streak || 0;
+}
+
+// 🎁 CLAIM BONUS
+window.claimBonus=async()=>{
+ let ref=doc(db,"users",user);
+ let d=(await getDoc(ref)).data();
+
+ let last=d.lastClaim||0;
+ let now=Date.now();
+ let diff=now-last;
+
+ if(diff<86400000){
+  alert("Come after 24h");
+  return;
+ }
+
+ let streak=d.streak||0;
+
+ if(diff>172800000){
+  streak=0;
+ }
+
+ streak++;
+
+ if(streak>30){
+  streak=1;
+ }
+
+ let bonus=streak*0.1;
+
+ await updateDoc(ref,{
+  coins:(d.coins||0)+bonus,
+  lastClaim:now,
+  streak:streak
+ });
+
+ alert("+"+bonus.toFixed(2)+" QNC");
+
+ loadBonus();
+ loadCoins();
+};
+
 // POSTS
 window.addPost=async()=>{
  let text=postText.value;
@@ -227,7 +286,6 @@ function loadPosts(){
   let html="";
   for(const d of s.docs){
    let p=d.data();
-
    let u=(await getDoc(doc(db,"users",p.user))).data();
    let online=u?.online;
 
