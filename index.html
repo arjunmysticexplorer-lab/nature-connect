@@ -3,7 +3,7 @@
 <head>
 <title>Nature Connect</title>
 
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
 <style>
 body{
@@ -101,6 +101,37 @@ img,video{
 
 </div>
 
+<!-- PROFILE -->
+<div id="profile" style="display:none">
+<div class="card">
+<h3>👤 Profile</h3>
+<p>Name: <span id="pName"></span></p>
+<p>Coins: <span id="pCoins"></span></p>
+<p>Level: <span id="pLevel"></span></p>
+</div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifications" style="display:none">
+<div class="card">
+<h3>🔔 Notifications</h3>
+<div id="notifList"></div>
+</div>
+</div>
+
+<!-- CHAT -->
+<div id="chat" style="display:none">
+<div class="card">
+<h3>💬 Chat</h3>
+
+<input id="chatUser" placeholder="Send to user">
+<input id="chatMsg" placeholder="Message">
+<button onclick="sendMsg()">Send</button>
+
+<div id="chatBox"></div>
+</div>
+</div>
+
 <!-- REELS -->
 <div id="reels" style="display:none">
 
@@ -122,6 +153,9 @@ img,video{
 
 <div class="bottom">
 <button onclick="showFeed()">🏠</button>
+<button onclick="showProfile()">👤</button>
+<button onclick="showNotifications()">🔔</button>
+<button onclick="showChat()">💬</button>
 <button onclick="showReels()">🎥</button>
 </div>
 
@@ -141,7 +175,6 @@ const db=getFirestore(app);
 let user="";
 let reelsList=[];
 let currentReel=0;
-let watchTimer=null;
 
 /* LOGIN */
 window.login=async()=>{
@@ -158,48 +191,33 @@ window.login=async()=>{
    mineLevel:1,
    online:true,
    streak:0,
-   lastClaim:0,
-   reelToday:0,
-   likeToday:0,
-   lastReset:Date.now()
+   lastClaim:0
   });
  }else{
-  let d=snap.data();
-
-  await updateDoc(ref,{
-   coins:d.coins ?? 0,
-   miningStart:d.miningStart ?? Date.now(),
-   mineLevel:d.mineLevel ?? 1,
-   online:true,
-   streak:d.streak ?? 0,
-   lastClaim:d.lastClaim ?? 0,
-   reelToday:d.reelToday ?? 0,
-   likeToday:d.likeToday ?? 0,
-   lastReset:d.lastReset ?? Date.now()
-  });
+  await updateDoc(ref,{online:true});
  }
 
  loginBox.style.display="none";
  main.style.display="block";
 
  loadAll();
-
  setInterval(loadCoins,1000);
 };
 
-/* LOAD ALL */
-function loadAll(){
- loadCoins();
- loadLevel();
- loadLeaderboard();
- loadBonus();
- loadPosts();
- loadReels();
-}
-
 /* NAV */
-window.showFeed=()=>{feed.style.display="block";reels.style.display="none";}
-window.showReels=()=>{reels.style.display="block";feed.style.display="none";}
+window.showFeed=()=>{hideAll();feed.style.display="block";}
+window.showProfile=()=>{hideAll();profile.style.display="block";loadProfile();}
+window.showNotifications=()=>{hideAll();notifications.style.display="block";loadNotifications();}
+window.showChat=()=>{hideAll();chat.style.display="block";loadChat();}
+window.showReels=()=>{hideAll();reels.style.display="block";}
+
+function hideAll(){
+ feed.style.display="none";
+ profile.style.display="none";
+ notifications.style.display="none";
+ chat.style.display="none";
+ reels.style.display="none";
+}
 
 /* MINING */
 window.startMining=async()=>{
@@ -210,28 +228,20 @@ async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- let coins=Number(d.coins||0);
- let start=Number(d.miningStart||Date.now());
- let level=Number(d.mineLevel||1);
+ let coins=d.coins||0;
+ let start=d.miningStart||Date.now();
+ let level=d.mineLevel||1;
 
  let sec=(Date.now()-start)/1000;
  let speed=(20+(level-1)*4)/86400;
 
  let total=coins+(sec*speed);
- if(isNaN(total)) total=coins;
 
  await updateDoc(ref,{coins:total,miningStart:Date.now()});
-
  coinBal.innerText=total.toFixed(5);
 }
 
-/* LEVEL */
-async function loadLevel(){
- let d=(await getDoc(doc(db,"users",user))).data();
- mineLevel.innerText=d.mineLevel||1;
-}
-
-/* POSTS FULL FIX */
+/* POSTS */
 function loadPosts(){
  onSnapshot(collection(db,"posts"), async snap=>{
   let html="";
@@ -243,18 +253,16 @@ function loadPosts(){
    html+=`
    <div class="card">
    <b>${p.user} ${u?.online?"🟢":"⚫"}</b>
-
    <p>${p.text||""}</p>
-
    ${p.image?`<img src="${p.image}">`:""}
 
    ❤️ ${p.likes||0}
-   <button onclick="likePost('${d.id}',${p.likes||0})">Like</button>
+   <button onclick="likePost('${d.id}',${p.likes||0},'${p.user}')">Like</button>
 
-   <div>${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}</div>
+   ${(p.comments||[]).map(c=>`<p>${c}</p>`).join("")}
 
    <input id="c-${d.id}">
-   <button onclick="sendComment('${d.id}')">Send</button>
+   <button onclick="sendComment('${d.id}','${p.user}')">Send</button>
    </div>`;
   }
 
@@ -262,40 +270,80 @@ function loadPosts(){
  });
 }
 
-/* LIKE */
-window.likePost=async(id,likes)=>{
+window.likePost=async(id,likes,to)=>{
  await updateDoc(doc(db,"posts",id),{likes:likes+1});
+
+ await addDoc(collection(db,"notifications"),{
+  to,
+  msg:user+" liked your post"
+ });
 };
 
-/* COMMENT */
-window.sendComment=async(id)=>{
+window.sendComment=async(id,to)=>{
  let i=document.getElementById("c-"+id);
- let t=i.value;
- if(!t)return;
+ let text=i.value;
 
  let ref=doc(db,"posts",id);
  let d=(await getDoc(ref)).data();
 
  let c=d.comments||[];
- c.push(user+": "+t);
+ c.push(user+": "+text);
 
  await updateDoc(ref,{comments:c});
+
+ await addDoc(collection(db,"notifications"),{
+  to,
+  msg:user+" commented on your post"
+ });
+
  i.value="";
 };
 
-/* ADD POST */
-window.addPost=async()=>{
- let text=postText.value;
- let f=file.files[0];
+/* PROFILE */
+async function loadProfile(){
+ let d=(await getDoc(doc(db,"users",user))).data();
 
- if(f){
-  let r=new FileReader();
-  r.onload=()=>addDoc(collection(db,"posts"),{user,text,image:r.result,likes:0,comments:[]});
-  r.readAsDataURL(f);
- }else{
-  addDoc(collection(db,"posts"),{user,text,likes:0,comments:[]});
- }
+ pName.innerText=user;
+ pCoins.innerText=(d.coins||0).toFixed(5);
+ pLevel.innerText=d.mineLevel||1;
+}
+
+/* NOTIFICATIONS */
+function loadNotifications(){
+ onSnapshot(collection(db,"notifications"),snap=>{
+  let html="";
+  snap.forEach(d=>{
+   let n=d.data();
+   if(n.to===user){
+    html+=`<p>${n.msg}</p>`;
+   }
+  });
+  notifList.innerHTML=html;
+ });
+}
+
+/* CHAT */
+window.sendMsg=async()=>{
+ await addDoc(collection(db,"chats"),{
+  from:user,
+  to:chatUser.value,
+  text:chatMsg.value
+ });
+ chatMsg.value="";
 };
+
+function loadChat(){
+ onSnapshot(collection(db,"chats"),snap=>{
+  let html="";
+  snap.forEach(d=>{
+   let c=d.data();
+   if(c.from===user || c.to===user){
+    html+=`<p><b>${c.from}:</b> ${c.text}</p>`;
+   }
+  });
+  chatBox.innerHTML=html;
+ });
+}
 
 /* REELS */
 window.uploadReel=async()=>{
@@ -319,46 +367,11 @@ function showReel(i){
 
  reelPlayer.innerHTML=`
  <video src="${r.video}" autoplay controls></video>
- <p>${r.user}</p>
- <button onclick="likeReel()">❤️</button>
- `;
-
- startWatch();
+ <p>${r.user}</p>`;
 }
 
 window.nextReel=()=>{if(currentReel<reelsList.length-1)showReel(currentReel+1);}
 window.prevReel=()=>{if(currentReel>0)showReel(currentReel-1);}
-
-/* WATCH */
-function startWatch(){
- if(watchTimer)clearInterval(watchTimer);
-
- watchTimer=setInterval(async()=>{
-  let ref=doc(db,"users",user);
-  let d=(await getDoc(ref)).data();
-
-  if(d.reelToday>=1)return;
-
-  await updateDoc(ref,{
-   coins:d.coins+0.005,
-   reelToday:d.reelToday+0.005
-  });
-
- },5000);
-}
-
-/* LIKE REEL */
-window.likeReel=async()=>{
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
-
- if(d.likeToday>=0.1)return;
-
- await updateDoc(ref,{
-  coins:d.coins+0.002,
-  likeToday:d.likeToday+0.002
- });
-};
 
 /* LEADERBOARD */
 function loadLeaderboard(){
@@ -374,11 +387,6 @@ function loadLeaderboard(){
 }
 
 /* BONUS */
-async function loadBonus(){
- let d=(await getDoc(doc(db,"users",user))).data();
- streak.innerText=d.streak||0;
-}
-
 window.claimBonus=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -386,16 +394,20 @@ window.claimBonus=async()=>{
  if(Date.now()-d.lastClaim<86400000)return;
 
  let s=(d.streak||0)+1;
- if(s>30)s=1;
 
  await updateDoc(ref,{
   coins:d.coins+(s*0.1),
   streak:s,
   lastClaim:Date.now()
  });
-
- loadBonus();
 };
+
+/* LOAD ALL */
+function loadAll(){
+ loadPosts();
+ loadReels();
+ loadLeaderboard();
+}
 
 </script>
 
