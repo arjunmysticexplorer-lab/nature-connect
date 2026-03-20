@@ -37,7 +37,7 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 
 <div class="card">
 💰 QNC: <span id="coinBal">0.00000</span><br>
-<button onclick="startMining()">⛏️ Start Mining</button>
+<button onclick="startMining()">⛏️ Start Mining (24h)</button>
 </div>
 
 <div class="card">
@@ -45,7 +45,6 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="upgradeMining()">Upgrade</button>
 </div>
 
-<!-- 🔥 LEADERBOARD -->
 <div class="card">
 <h3>🏆 Leaderboard</h3>
 <div id="leaderboard"></div>
@@ -114,7 +113,7 @@ window.login=async()=>{
  loadCoins();
  loadLevel();
  loadReels();
- loadLeaderboard(); // 🔥 ADD
+ loadLeaderboard();
 };
 
 // NAV
@@ -124,7 +123,7 @@ window.showNotifications=()=>{notify.style.display="block";feed.style.display="n
 window.showChat=()=>{chat.style.display="block";feed.style.display="none";}
 window.showReels=()=>{reels.style.display="block";feed.style.display="none";}
 
-// MINING
+// MINING START
 window.startMining=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -134,7 +133,7 @@ window.startMining=async()=>{
  await updateDoc(ref,{miningStart:Date.now()});
 };
 
-// COINS
+// 🔥 FINAL COIN SYSTEM (20 + 4 LEVEL)
 async function loadCoins(){
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
@@ -146,10 +145,16 @@ async function loadCoins(){
   let sec=Math.floor((Date.now()-start)/1000);
   if(sec>86400)sec=86400;
 
-  let speed=0.01*(d.mineLevel||1);
+  let level=d.mineLevel||1;
+
+  let daily=20 + (level-1)*4;
+
+  let speed=daily/86400;
+
   let total=coins+(sec*speed);
 
   await updateDoc(ref,{coins:total,miningStart:null});
+
   coinBal.innerText=total.toFixed(5);
  }else{
   coinBal.innerText=coins.toFixed(5);
@@ -180,30 +185,22 @@ window.upgradeMining=async()=>{
  loadLevel();
 };
 
-// 🔥 LEADERBOARD FUNCTION
+// LEADERBOARD
 function loadLeaderboard(){
- onSnapshot(collection(db,"users"),(snap)=>{
-
+ onSnapshot(collection(db,"users"),snap=>{
   let users=[];
-
   snap.forEach(d=>{
-   let data=d.data();
-   users.push({
-    name:d.id,
-    coins:data.coins||0
-   });
+   users.push({name:d.id,coins:d.data().coins||0});
   });
 
   users.sort((a,b)=>b.coins-a.coins);
 
   let html="";
-
   users.slice(0,10).forEach((u,i)=>{
    html+=`<div>${i+1}. ${u.name} — ${u.coins.toFixed(5)} QNC</div>`;
   });
 
   leaderboard.innerHTML=html;
-
  });
 }
 
@@ -229,7 +226,6 @@ window.addPost=async()=>{
 function loadPosts(){
  onSnapshot(collection(db,"posts"),async s=>{
   let html="";
-
   for(const d of s.docs){
    let p=d.data();
 
@@ -248,7 +244,6 @@ function loadPosts(){
    <button onclick="sendComment('${d.id}')">Send</button>
    </div>`;
   }
-
   posts.innerHTML=html;
  });
 }
