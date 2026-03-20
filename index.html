@@ -3,7 +3,7 @@
 <head>
 <title>Nature Connect</title>
 
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
 <style>
 body{
@@ -13,17 +13,14 @@ body{
  color:white;
 }
 
-/* GLASS CARD */
 .card{
  background:rgba(255,255,255,0.05);
  backdrop-filter:blur(10px);
  border-radius:15px;
  padding:15px;
  margin:10px;
- box-shadow:0 5px 20px rgba(0,0,0,0.4);
 }
 
-/* INPUT */
 input{
  width:80%;
  padding:12px;
@@ -35,7 +32,6 @@ input{
  font-size:16px;
 }
 
-/* BUTTON */
 button{
  background:#00c853;
  border:none;
@@ -44,14 +40,12 @@ button{
  color:white;
 }
 
-/* MEDIA */
 img,video{
  width:100%;
  border-radius:10px;
  margin-top:10px;
 }
 
-/* BOTTOM NAV */
 .bottom{
  position:fixed;
  bottom:0;
@@ -62,15 +56,12 @@ img,video{
  padding:10px;
 }
 
-#main{
- padding-bottom:70px;
-}
+#main{padding-bottom:70px;}
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
 <div id="loginBox">
 <input id="username" placeholder="Enter name">
 <button onclick="login()">Login</button>
@@ -82,7 +73,7 @@ img,video{
 
 <div class="card">
 💰 QNC: <span id="coinBal">0.00000</span><br>
-<button onclick="startMining()">⛏️ Start Mining (24h)</button>
+<button onclick="startMining()">⛏️ Start Mining</button>
 </div>
 
 <div class="card">
@@ -101,7 +92,7 @@ img,video{
 <button onclick="claimBonus()">Claim</button>
 </div>
 
-<input id="postText" placeholder="Write post">
+<input id="postText">
 <input type="file" id="file">
 <button onclick="addPost()">Post</button>
 
@@ -109,33 +100,27 @@ img,video{
 
 </div>
 
-<div id="profile" style="display:none">
-<h2 id="pname"></h2>
-</div>
-
-<div id="notify" style="display:none"></div>
-
-<div id="chat" style="display:none">
-<input id="chatUser">
-<button onclick="openChat()">Open</button>
-<div id="chatBox"></div>
-<input id="msg">
-<button onclick="sendMsg()">Send</button>
-</div>
-
+<!-- REELS -->
 <div id="reels" style="display:none">
+
+<div class="card">
 <input type="file" id="reelFile">
 <button onclick="uploadReel()">Upload</button>
-<div id="reelBox"></div>
+</div>
+
+<div id="reelPlayer" class="card"></div>
+
+<div style="text-align:center">
+<button onclick="prevReel()">⬆️</button>
+<button onclick="nextReel()">⬇️</button>
+</div>
+
 </div>
 
 </div>
 
 <div class="bottom">
 <button onclick="showFeed()">🏠</button>
-<button onclick="showProfile()">👤</button>
-<button onclick="showNotifications()">🔔</button>
-<button onclick="showChat()">💬</button>
 <button onclick="showReels()">🎥</button>
 </div>
 
@@ -152,13 +137,14 @@ const app=initializeApp({
 
 const db=getFirestore(app);
 
-let user="",chatUser="";
+let user="";
+let reelsList=[];
+let currentReel=0;
+let watchTimer=null;
 
-/* LOGIN FIXED */
+/* LOGIN */
 window.login=async()=>{
  user=username.value.trim();
- if(!user)return;
-
  let ref=doc(db,"users",user);
  let snap=await getDoc(ref);
 
@@ -167,130 +153,74 @@ window.login=async()=>{
    coins:0,
    miningStart:Date.now(),
    mineLevel:1,
-   online:true,
    streak:0,
-   lastClaim:0
+   lastClaim:0,
+   reelToday:0,
+   likeToday:0,
+   lastReset:Date.now()
   });
- }else{
-  let d=snap.data();
+ }
 
+ let d=(await getDoc(ref)).data();
+
+ // RESET DAILY LIMIT
+ if(Date.now()-d.lastReset>86400000){
   await updateDoc(ref,{
-   coins:d.coins ?? 0,
-   miningStart:d.miningStart ?? Date.now(),
-   mineLevel:d.mineLevel ?? 1,
-   online:true,
-   streak:d.streak ?? 0,
-   lastClaim:d.lastClaim ?? 0
+   reelToday:0,
+   likeToday:0,
+   lastReset:Date.now()
   });
  }
 
  loginBox.style.display="none";
  main.style.display="block";
 
- loadPosts();
  loadCoins();
  loadLevel();
  loadLeaderboard();
  loadBonus();
+ loadPosts();
+ loadReels();
 
  setInterval(loadCoins,1000);
 };
 
 /* NAV */
-window.showFeed=()=>{feed.style.display="block";profile.style.display="none";notify.style.display="none";chat.style.display="none";reels.style.display="none";}
-window.showProfile=()=>{profile.style.display="block";feed.style.display="none";pname.innerText=user;}
-window.showNotifications=()=>{notify.style.display="block";feed.style.display="none";}
-window.showChat=()=>{chat.style.display="block";feed.style.display="none";}
+window.showFeed=()=>{feed.style.display="block";reels.style.display="none";}
 window.showReels=()=>{reels.style.display="block";feed.style.display="none";}
 
 /* MINING */
 window.startMining=async()=>{
- let ref=doc(db,"users",user);
- await updateDoc(ref,{miningStart:Date.now()});
+ await updateDoc(doc(db,"users",user),{miningStart:Date.now()});
 };
 
-/* COINS FIXED */
 async function loadCoins(){
- let ref=doc(db,"users",user);
- let d=(await getDoc(ref)).data();
+ let d=(await getDoc(doc(db,"users",user))).data();
 
- let coins = Number(d.coins || 0);
- let start = Number(d.miningStart || Date.now());
- let level = Number(d.mineLevel || 1);
+ let sec=(Date.now()-d.miningStart)/1000;
+ let speed=(20+(d.mineLevel-1)*4)/86400;
 
- let sec = (Date.now()-start)/1000;
- let speed = (20+(level-1)*4)/86400;
+ let total=(d.coins||0)+(sec*speed);
 
- let total = coins + (sec*speed);
- if(isNaN(total)) total = coins;
-
- await updateDoc(ref,{
-  coins: total,
-  miningStart: Date.now()
+ await updateDoc(doc(db,"users",user),{
+  coins:total,
+  miningStart:Date.now()
  });
 
- coinBal.innerText = total.toFixed(5);
+ coinBal.innerText=total.toFixed(5);
 }
 
 /* LEVEL */
 async function loadLevel(){
  let d=(await getDoc(doc(db,"users",user))).data();
- mineLevel.innerText=d.mineLevel||1;
+ mineLevel.innerText=d.mineLevel;
 }
-
-/* ONLINE STATUS FIX */
-function loadPosts(){
- onSnapshot(collection(db,"posts"),async snap=>{
-  let html="";
-
-  for(const d of snap.docs){
-   let p=d.data();
-
-   let u=(await getDoc(doc(db,"users",p.user))).data();
-   let online=u?.online;
-
-   html+=`
-   <div class="card">
-   <b>${p.user} ${online?"🟢":"⚫"}</b>
-   <p>${p.text||""}</p>
-   ${p.image?`<img src="${p.image}">`:""}
-   ❤️ ${p.likes||0}
-   <button onclick="like('${d.id}',${p.likes||0})">Like</button>
-   <div>${(p.comments||[]).join("<br>")}</div>
-   <input id="c-${d.id}">
-   <button onclick="sendComment('${d.id}')">Send</button>
-   </div>`;
-  }
-
-  posts.innerHTML=html;
- });
-}
-
-/* LIKE */
-window.like=async(id,l)=>updateDoc(doc(db,"posts",id),{likes:l+1});
-
-/* COMMENT */
-window.sendComment=async(id)=>{
- let i=document.getElementById("c-"+id);
- let t=i.value;
- if(!t)return;
-
- let ref=doc(db,"posts",id);
- let d=(await getDoc(ref)).data();
- let c=d.comments||[];
-
- c.push(user+": "+t);
- await updateDoc(ref,{comments:c});
- i.value="";
-};
 
 /* LEADERBOARD */
 function loadLeaderboard(){
  onSnapshot(collection(db,"users"),snap=>{
   let arr=[];
-  snap.forEach(d=>{
-   arr.push({n:d.id,c:d.data().coins||0});
-  });
+  snap.forEach(d=>arr.push({n:d.id,c:d.data().coins||0}));
   arr.sort((a,b)=>b.c-a.c);
 
   leaderboard.innerHTML=arr.slice(0,5)
@@ -302,28 +232,116 @@ function loadLeaderboard(){
 /* BONUS */
 async function loadBonus(){
  let d=(await getDoc(doc(db,"users",user))).data();
- streak.innerText=d.streak||0;
+ streak.innerText=d.streak;
 }
 
 window.claimBonus=async()=>{
  let ref=doc(db,"users",user);
  let d=(await getDoc(ref)).data();
 
- let now=Date.now();
- if(now-(d.lastClaim||0)<86400000)return alert("Wait 24h");
+ if(Date.now()-d.lastClaim<86400000)return alert("Wait");
 
  let s=(d.streak||0)+1;
  if(s>30)s=1;
 
- let bonus=s*0.1;
-
  await updateDoc(ref,{
-  coins:d.coins+bonus,
+  coins:d.coins+(s*0.1),
   streak:s,
-  lastClaim:now
+  lastClaim:Date.now()
  });
 
  loadBonus();
+};
+
+/* POSTS */
+window.addPost=async()=>{
+ let text=postText.value;
+ let f=file.files[0];
+
+ if(f){
+  let r=new FileReader();
+  r.onload=()=>addDoc(collection(db,"posts"),{user,text,image:r.result});
+  r.readAsDataURL(f);
+ }else{
+  addDoc(collection(db,"posts"),{user,text});
+ }
+};
+
+/* LOAD POSTS */
+function loadPosts(){
+ onSnapshot(collection(db,"posts"),snap=>{
+  let html="";
+  snap.forEach(d=>{
+   let p=d.data();
+   html+=`<div class="card">${p.user}<p>${p.text}</p>${p.image?`<img src="${p.image}">`:""}</div>`;
+  });
+  posts.innerHTML=html;
+ });
+}
+
+/* REELS */
+window.uploadReel=async()=>{
+ let f=reelFile.files[0];
+ let r=new FileReader();
+ r.onload=()=>addDoc(collection(db,"reels"),{user,video:r.result});
+ r.readAsDataURL(f);
+};
+
+function loadReels(){
+ onSnapshot(collection(db,"reels"),snap=>{
+  reelsList=[];
+  snap.forEach(d=>reelsList.push({id:d.id,...d.data()}));
+  showReel(0);
+ });
+}
+
+function showReel(i){
+ if(reelsList.length===0)return;
+
+ currentReel=i;
+ let r=reelsList[i];
+
+ reelPlayer.innerHTML=`
+ <video src="${r.video}" autoplay controls></video>
+ <p>${r.user}</p>
+ <button onclick="likeReel('${r.id}')">❤️</button>
+ `;
+
+ startWatch();
+}
+
+window.nextReel=()=>{if(currentReel<reelsList.length-1)showReel(currentReel+1);}
+window.prevReel=()=>{if(currentReel>0)showReel(currentReel-1);}
+
+/* WATCH EARNING */
+function startWatch(){
+ if(watchTimer)clearInterval(watchTimer);
+
+ watchTimer=setInterval(async()=>{
+  let ref=doc(db,"users",user);
+  let d=(await getDoc(ref)).data();
+
+  if(d.reelToday>=1)return;
+
+  await updateDoc(ref,{
+   coins:d.coins+0.005,
+   reelToday:d.reelToday+0.005
+  });
+
+ },5000);
+}
+
+/* LIKE */
+window.likeReel=async()=>{
+ let ref=doc(db,"users",user);
+ let d=(await getDoc(ref)).data();
+
+ if(d.likeToday>=0.1)return alert("Limit");
+
+ await updateDoc(ref,{
+  coins:d.coins+0.002,
+  likeToday:d.likeToday+0.002
+ });
 };
 
 </script>
