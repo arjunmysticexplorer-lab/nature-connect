@@ -57,7 +57,6 @@ img,video{width:100%;border-radius:10px;margin-top:10px;}
 <button onclick="sendCoins()">Send QNC</button>
 </div>
 
-<!-- WITHDRAW -->
 <div class="card">
 <h3>💸 Withdraw QNC</h3>
 <input id="withdrawAmount" type="number" placeholder="Amount">
@@ -121,14 +120,19 @@ const db=getFirestore(app);
 
 let user="",currentChatUser="";
 
-// LOGIN
+// ✅ LOGIN FIXED
 window.login=async()=>{
  user=username.value.trim();
  if(!user) return alert("Enter name");
 
- await setDoc(doc(db,"users",user),{
-  coins:0,lastMine:0,online:true
- },{merge:true});
+ let ref=doc(db,"users",user);
+ let snap=await getDoc(ref);
+
+ if(!snap.exists()){
+  await setDoc(ref,{coins:0,lastMine:0,online:true});
+ }else{
+  await updateDoc(ref,{online:true});
+ }
 
  loginBox.style.display="none";
  main.style.display="block";
@@ -224,7 +228,6 @@ window.withdrawRequest=async()=>{
  });
 
  loadCoins();
- alert("Withdraw requested");
 };
 
 // WITHDRAW LIST
@@ -297,6 +300,7 @@ function load(){
    <div class="card">
    <b>${p.user} ${online?"🟢":"⚫"}</b>
    <p>${p.text||""}</p>
+
    ${p.image?`<img src="${p.image}">`:""}
 
    ❤️ ${p.likes||0}
